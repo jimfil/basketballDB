@@ -26,11 +26,10 @@ def getConnection():
 
 def query(sql, params=()):
     with getConnection() as con:
-        cur = con.execute(sql, params)
-        rows = cur.fetchall()
-        return [dict(row) for row in rows]
+        with con.cursor() as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+            return dict(rows)
     
 lista = query("SELECT * FROM Team;")
-for r in lista:
-    print(r)
-
+print(lista)

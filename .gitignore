@@ -1,2 +1,4 @@
 .env
+init_db.py
+populate_huge.py
 __pycache__/

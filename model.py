@@ -18,13 +18,19 @@ def getConnection():
         host=DB_HOST, 
         user=DB_USER, 
         password=DB_PASS, 
+        database=DB_NAME,
         port=4000,
         ssl={'ca': certifi.where()}
     )
     return conn
 
-cur = getConnection.cursor()
-cur.execute(f"use {DB_NAME};SELECT * FROM Team;")
-for r in cur:
+def query(sql, params=()):
+    with getConnection() as con:
+        cur = con.execute(sql, params)
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+    
+lista = query("SELECT * FROM Team;")
+for r in lista:
     print(r)
-cur.close()
+

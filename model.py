@@ -24,23 +24,6 @@ def get_connection():
     )
     return con
 
-def query(sql, params=()):
-    returnable = []
-    with get_connection() as con:
-        with con.cursor() as cur:
-            cur.execute(sql, params)
-            cols = [d[0] for d in cur.description]
-            for row in cur.fetchall():
-                returnable.append(dict(zip(cols, row)))
-            return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
-    
-
-def get_teams():
-    return query("SELECT * FROM Team;")
-
-def get_players():
-    return query("SELECT * FROM Person;")
-
 def create_team(name):
     with get_connection() as con:
         cur = con.cursor()
@@ -73,5 +56,10 @@ def read_table_entries_for_attribute(table_name,list_table_attribute):
                 lista.append([entry[0] for entry in cur])
             return lista
             
-        
-print(read_table_entries_for_attribute("Team","name"))
+
+def create_entry(table_name,list_user_input):
+    attributes = tuple(return_attributes(table_name))
+    with get_connection() as con:
+        with con.cursor() as cur:
+            cur.execute(f"INSERT INTO {table_name} ({attributes}) VALUES (%s, %s)",list_user_input)
+            return

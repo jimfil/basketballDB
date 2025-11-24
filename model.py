@@ -14,7 +14,7 @@ DB_PASS = os.getenv('DB_PASS')
 DB_NAME   = os.getenv('DB_NAME')
 
 def getConnection():
-    conn = pymysql.connect(
+    con = pymysql.connect(
         host=DB_HOST, 
         user=DB_USER, 
         password=DB_PASS, 
@@ -22,14 +22,23 @@ def getConnection():
         port=4000,
         ssl={'ca': certifi.where()}
     )
-    return conn
+    return con
 
 def query(sql, params=()):
+    returnable = []
     with getConnection() as con:
         with con.cursor() as cur:
             cur.execute(sql, params)
-            rows = cur.fetchall()
-            return dict(rows)
+            cols = [d[0] for d in cur.description]
+            for row in cur.fetchall():
+                returnable.append(dict(zip(cols, row)))
+            return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
     
-lista = query("SELECT * FROM Team;")
-print(lista)
+
+def getTeams():
+    return query("SELECT * FROM Team;")
+
+def getPlayers():
+    return query("SELECT * FROM Person;")
+
+

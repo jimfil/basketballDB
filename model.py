@@ -74,3 +74,4 @@ def read_table_entries_for_attribute(table_name,list_table_attribute): #
             return lista
             
         
+        

@@ -47,7 +47,7 @@ def return_attributes(table_name):
             columns = cur.fetchall()
             return [col[0] for col in columns]
         
-def read_table_entries_for_attribute(table_name,list_table_attribute):
+def read_table_entries_for_attribute(table_name,list_table_attribute): 
     with get_connection() as con:
         with con.cursor() as cur:
             lista =[]
@@ -63,3 +63,16 @@ def create_entry(table_name,list_user_input):
         with con.cursor() as cur:
             cur.execute(f"INSERT INTO {table_name} ({attributes}) VALUES (%s, %s)",list_user_input)
             return
+
+def delete_from_table(table_name,id):
+    with get_connection() as con:
+        with con.cursor() as cur:
+            cur.execute(f"DELETE FROM {table_name} WHERE id = {id};")
+            return
+        
+def update_entry(table_name, id, data_dict,gnwrisma):
+    with get_connection() as con:
+        with con.cursor() as cur:
+            cur.execute(f"UPDATE {table_name} SET {gnwrisma}={data_dict} WHERE id= {id};")
+            return
+    

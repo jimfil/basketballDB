@@ -51,5 +51,3 @@ except Exception as e:
 finally:
     cursor.close()
     conn.close()
-
-    allagh

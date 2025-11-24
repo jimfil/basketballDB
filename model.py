@@ -24,6 +24,23 @@ def get_connection():
     )
     return con
 
+def query(sql, params=()):
+    returnable = []
+    with get_connection() as con:
+        with con.cursor() as cur:
+            cur.execute(sql, params)
+            cols = [d[0] for d in cur.description]
+            for row in cur.fetchall():
+                returnable.append(dict(zip(cols, row)))
+            return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
+    
+
+def get_teams():
+    return query("SELECT * FROM Team;")
+
+def get_players():
+    return query("SELECT * FROM Person;")
+
 def create_team(name):
     with get_connection() as con:
         cur = con.cursor()
@@ -33,14 +50,14 @@ def create_team(name):
         except pymysql.err.IntegrityError as e:
             return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma
 
-def return_cud_tables():
+def return_cud_tables(): #Return the tables for which you can create update and delete entries. 
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute("SHOW TABLES;")
             tables = cur.fetchall()
             return [tables[0] for tables in tables]
         
-def return_attributes(table_name):
+def return_attributes(table_name): #Input is a santized dropdown box. Cannot use variable for some reason.
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute(f"SHOW COLUMNS FROM {table_name};")

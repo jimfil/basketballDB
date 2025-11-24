@@ -75,10 +75,21 @@ def read_table_entries_for_attribute(table_name,list_table_attribute):
             
 
 def create_entry(table_name,list_user_input):
-    attributes = tuple(return_attributes(table_name))
+    col_names = return_attributes(table_name)
+    columns_str = ", ".join(col_names)
+    
+    # 2. Dynamic Placeholders: Create string like "%s, %s, %s" based on input length
+    placeholders = ", ".join(["%s"] * len(list_user_input))
+
     with get_connection() as con:
         with con.cursor() as cur:
-            cur.execute(f"INSERT INTO {table_name} ({attributes}) VALUES (%s, %s)",list_user_input)
+            # 3. Construct Query
+            sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+            
+            # 4. Execute with SAFE parameters
+            cur.execute(sql, list_user_input)
+            con.commit()
+            print("Entry created.")
             return
 
 def delete_from_table(table_name,id):

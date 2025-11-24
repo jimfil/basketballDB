@@ -50,21 +50,21 @@ def create_team(name):
         except pymysql.err.IntegrityError as e:
             return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma
 
-def return_cud_tables():
+def return_cud_tables(): #Return the tables for which you can create update and delete entries. 
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute("SHOW TABLES;")
             tables = cur.fetchall()
             return [tables[0] for tables in tables]
         
-def return_attributes(table_name):
+def return_attributes(table_name): #Input is a santized dropdown box. Cannot use variable for some reason.
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute(f"SHOW COLUMNS FROM {table_name};")
             columns = cur.fetchall()
             return [col[0] for col in columns]
         
-def read_table_entries_for_attribute(table_name,list_table_attribute):
+def read_table_entries_for_attribute(table_name,list_table_attribute): #
     with get_connection() as con:
         with con.cursor() as cur:
             lista =[]
@@ -74,4 +74,3 @@ def read_table_entries_for_attribute(table_name,list_table_attribute):
             return lista
             
         
-print(read_table_entries_for_attribute("Team","name"))

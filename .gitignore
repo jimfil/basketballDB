@@ -8,8 +8,6 @@ __pycache__/
 
 instance/
 init_db.py
-populate_huge.py
-.pytest_cache/
 .coverage
 htmlcov/
 

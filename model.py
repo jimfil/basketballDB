@@ -41,4 +41,11 @@ def getTeams():
 def getPlayers():
     return query("SELECT * FROM Person;")
 
-
+def createTeam(name):
+    with getConnection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO Team (NAME) VALUES (%s);",  (name))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma

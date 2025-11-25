@@ -77,10 +77,7 @@ def read_table_entries_for_attribute(table_name,list_table_attribute):
 def create_entry(table_name,list_user_input):
     col_names = return_attributes(table_name)
     columns_str = ", ".join(col_names)
-    
-    # 2. Dynamic Placeholders: Create string like "%s, %s, %s" based on input length
-    placeholders = ", ".join(["%s"] * len(list_user_input))
-
+    placeholders = ", ".join(["%s"] * len(list_user_input)) #tha prepei na ta dinoume me thn swsth seira sto controller
     with get_connection() as con:
         with con.cursor() as cur:
             # 3. Construct Query
@@ -95,8 +92,9 @@ def create_entry(table_name,list_user_input):
 def delete_from_table(table_name,id):
     with get_connection() as con:
         with con.cursor() as cur:
-            cur.execute(f"DELETE FROM {table_name} WHERE id = {id};")
-            return
+            query = f"DELETE FROM {table_name} WHERE id = %s;"
+            cur.execute(query, (id,))
+            con.commit()
         
 def update_entry(table_name, id, data_dict,gnwrisma):
     with get_connection() as con:

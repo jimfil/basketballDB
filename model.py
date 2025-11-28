@@ -106,7 +106,7 @@ def return_attributes(table_name): #Input is a santized dropdown box. Cannot use
             columns = cur.fetchall()
             return [col[0] for col in columns]
         
-def read_table_entries_for_attribute(table_name,list_table_attribute = ["id"]):  #ean den baloume orisma epistrefei mono to id
+def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):  #ean den baloume orisma epistrefei mono to id
     with get_connection() as con:
         with con.cursor() as cur:
             lista =[]
@@ -176,7 +176,7 @@ def get_match_stats(id,i = 0): #
                             JOIN team as t
                             ON pt.team_id = t.id    
                             WHERE ec.match_id = %s
-                            ORDER BY ec.game_time
+                            ORDER BY ec.game_time, ec.event_id
                             LIMIT 10 OFFSET %s'''
                 cur.execute(sql,(id,i*10))                
                 tuples = cur.fetchall()
@@ -200,3 +200,39 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
             sql += " GROUP BY e.name;"
             cur.execute(sql, params)
             return dict(cur.fetchall())
+        
+def get_scores(match_id):
+    with get_connection() as con:
+        with con.cursor() as cur:
+            cur.execute("SELECT home_team_id, away_team_id FROM `match` WHERE id = %s", (match_id,))
+            teams = cur.fetchone()
+            if not teams:
+                return None # Match not found
+            team1_id, team2_id = teams
+            sql_score = """
+                SELECT
+                    pt.team_id,
+                    SUM(
+                        CASE e.name
+                            WHEN '3-Point Field Goal Made' THEN 3
+                            WHEN '2-Point Field Goal Made' THEN 2
+                            WHEN 'Free Throw Made' THEN 1
+                            ELSE 0
+                        END
+                    ) AS total_score
+                FROM event_creation AS ec
+                JOIN event AS e 
+                    ON ec.event_id = e.id
+                JOIN person_team AS pt 
+                    ON ec.person_id = pt.person_id
+                WHERE ec.match_id = %s AND pt.team_id IN (%s, %s)
+                GROUP BY pt.team_id;
+            """
+            cur.execute(sql_score, (match_id, team1_id, team2_id))
+            results = dict(cur.fetchall())
+            
+            # Return a dictionary with team IDs and their scores, defaulting to 0.
+            return {
+                team1_id: int(results.get(team1_id, 0)),
+                team2_id: int(results.get(team2_id, 0))
+            }

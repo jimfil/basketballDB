@@ -98,4 +98,25 @@ def update_entry(table_name, id, data_dict,gnwrisma):
         with con.cursor() as cur:
             cur.execute(f"UPDATE {table_name} SET {gnwrisma}={data_dict} WHERE id= {id};")
             return
-    
+
+def get_all_events():
+    with get_connection() as con:
+            with con.cursor() as cur:
+                cur.execute("SELECT name FROM event")
+                columns = cur.fetchall()
+                event_names = [name[0] for name in columns]
+                return event_names
+
+def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
+    with get_connection() as con:
+            with con.cursor() as cur:
+                cur.execute("SELECT * FROM event_creation WHERE person_id = %s LIMIT 10 OFFSET %s",(id,i*10))
+                tuples = cur.fetchall()
+                return tuples
+
+def get_match_stats(id,i = 0): # 
+    with get_connection() as con:
+            with con.cursor() as cur:
+                cur.execute("SELECT * FROM event_creation WHERE match_id = %s LIMIT 10 OFFSET %s",(id,i*10))
+                tuples = cur.fetchall()
+                return tuples

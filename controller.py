@@ -15,6 +15,7 @@ def find_playerstats(player_id):
             break
 
 def view_teams():
+    read_table_entries_for_attribute()
     pass
 
 def create_team():
@@ -91,8 +92,6 @@ if __name__ == "__main__":
     print("\n\t\t--->>Welcome to the BasketBall League<<---")
     exit = False
     while not exit:
-        exit = main_menu(display_main_menu())
+        exit = main_menu(int(display_main_menu()))
 
     
-    # Find career 2-point percentage for player 10001
-    find_player_foul_shot_percentage("10010")

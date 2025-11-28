@@ -94,3 +94,5 @@ if __name__ == "__main__":
         exit = main_menu(display_main_menu())
 
     
+    # Find career 2-point percentage for player 10001
+    find_player_foul_shot_percentage("10010")

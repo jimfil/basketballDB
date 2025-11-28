@@ -41,6 +41,9 @@ def get_teams():
 def get_players():
     return query("SELECT * FROM Person;")
 
+def get_matches():
+    return query("SELECT * FROM `match`;")
+
 def create_team(name):
     with get_connection() as con:
         cur = con.cursor()

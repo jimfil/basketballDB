@@ -1,5 +1,5 @@
 from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams
-from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams
+from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams, display_team_menu
 
 
 
@@ -85,13 +85,21 @@ def obtain_match_scores(match_id):
 
 
 
+def team_menu(index):
+    """Handles the team management menu logic."""
+    if index == 1:
+        view_teams()
+    elif index == 2:
+        create_team()
+    elif index == 3:
+        return  # Go back
+
 def main_menu(index):
-    if index==1: view_teams() # This will now show all teams
-    elif index==2: create_team()
+    if index==1: team_menu(int(get_stats_menu()))
+    elif index==2: pass
     elif index==3: get_stats_menu()
     elif index==4: return True
     return False
-
 
 
 

@@ -77,3 +77,16 @@ def get_stats_menu():
         print("Please Input a Valid Number (1-5)")
         answer = input("Awaiting Response: ")
     return answer
+
+def display_team_menu(): 
+    """Displays the team management menu and gets user input."""
+    print("\n--- Team Management ---")
+    print("1: View Teams")
+    print("2: Create Team")
+    print("3: Back to Main Menu")
+    valid_answers = ["1", "2", "3"]
+    answer = input("Awaiting Response: ")
+    while answer not in valid_answers:
+        print("Please Input a Valid Number (1-3)")
+        answer = input("Awaiting Response: ")
+    return answer

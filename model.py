@@ -159,12 +159,38 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
             cur.execute(sql, params)
             return dict(cur.fetchall())
         
-def get_scores(team1_id,team2_id):
+def get_scores(match_id):
     with get_connection() as con:
         with con.cursor() as cur:
-            sql = '''
-
-            '''
-            cur.execute(sql,(team1_id,team2_id))
-            tuples = cur.fetchall()
-            return tuples
+            cur.execute("SELECT home_team_id, away_team_id FROM `match` WHERE id = %s", (match_id,))
+            teams = cur.fetchone()
+            if not teams:
+                return None # Match not found
+            team1_id, team2_id = teams
+            sql_score = """
+                SELECT
+                    pt.team_id,
+                    SUM(
+                        CASE e.name
+                            WHEN '3-Point Field Goal Made' THEN 3
+                            WHEN '2-Point Field Goal Made' THEN 2
+                            WHEN 'Free Throw Made' THEN 1
+                            ELSE 0
+                        END
+                    ) AS total_score
+                FROM event_creation AS ec
+                JOIN event AS e 
+                    ON ec.event_id = e.id
+                JOIN person_team AS pt 
+                    ON ec.person_id = pt.person_id
+                WHERE ec.match_id = %s AND pt.team_id IN (%s, %s)
+                GROUP BY pt.team_id;
+            """
+            cur.execute(sql_score, (match_id, team1_id, team2_id))
+            results = dict(cur.fetchall())
+            
+            # Return a dictionary with team IDs and their scores, defaulting to 0.
+            return {
+                team1_id: int(results.get(team1_id, 0)),
+                team2_id: int(results.get(team2_id, 0))
+            }

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Match Stats{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <table>
+    <thead>
+      <tr>
+        <th>Shirt Number</th>
+        <th>Last Name</th>
+        <th>Event</th>
+        <th>Game Time</th>
+        <th>Team</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stat in stats %}
+        <tr>
+          <td>{{ stat[0] }}</td>
+          <td>{{ stat[1] }}</td>
+          <td>{{ stat[2] }}</td>
+          <td>{{ stat[3] }}</td>
+          <td>{{ stat[4] }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

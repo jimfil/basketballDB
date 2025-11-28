@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}All Matches{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Date</th>
+        <th>Location</th>
+        <th>Team 1 ID</th>
+        <th>Team 2 ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for match in matches %}
+        <tr>
+          <td><a href="{{ url_for('basketball.match_details', id=match['id']) }}">{{ match['id'] }}</a></td>
+          <td>{{ match['date'] }}</td>
+          <td>{{ match['location'] }}</td>
+          <td>{{ match['team_1_id'] }}</td>
+          <td>{{ match['team_2_id'] }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -114,7 +114,7 @@ def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
                             FROM event_creation as ec
                             JOIN event as e
                             ON ec.event_id = e.id
-                            WHERE person_id = %s
+                            WHERE ec.person_id = %s
                             LIMIT 10 OFFSET %s''',(id,i*10))
                 tuples = cur.fetchall()
                 return tuples
@@ -122,7 +122,7 @@ def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
 def get_match_stats(id,i = 0): # 
     with get_connection() as con:
             with con.cursor() as cur:
-                cur.execute('''SELECT pt.shirt_number, p.last_name, e.name, ec.game_time
+                cur.execute('''SELECT pt.shirt_num, p.last_name, e.name, ec.game_time, t.name
                             FROM event_creation as ec
                             JOIN event as e
                             ON ec.event_id = e.id
@@ -130,7 +130,36 @@ def get_match_stats(id,i = 0): #
                             ON ec.person_id = p.id
                             JOIN person_team as pt
                             ON p.id = pt.person_id
-                            WHERE person_id = %s
+                            JOIN team as t
+                            ON pt.team_id = t.id
+                            WHERE ec.match_id = %s
+                            ORDER BY ec.game_time
                             LIMIT 10 OFFSET %s''',(id,i*10))                
                 tuples = cur.fetchall()
                 return tuples
+
+def get_player_shot_stats(player_id, shot_type, match_id=None):
+    """
+    Retrieves the count of made and missed shots for a player.
+    :param player_id: The ID of the player.
+    :param shot_type: The base name of the shot, e.g., '2-Point Shot'.
+    :param match_id: Optional ID of a match to filter stats for.
+    :return: A dictionary with counts for made and missed shots.
+    """
+    with get_connection() as con:
+        with con.cursor() as cur:
+            sql = """
+                SELECT e.name, COUNT(e.name)
+                FROM event_creation AS ec
+                JOIN event AS e ON ec.event_id = e.id
+                WHERE ec.person_id = %s AND e.name IN (%s, %s)
+            """
+            params = [player_id, f"{shot_type} Made", f"{shot_type} Attempt"]
+
+            if match_id:
+                sql += " AND ec.match_id = %s"
+                params.append(match_id)
+
+            sql += " GROUP BY e.name;"
+            cur.execute(sql, params)
+            return dict(cur.fetchall())

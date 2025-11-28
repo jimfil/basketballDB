@@ -61,6 +61,8 @@ def get_matches_by_round(round_id):
 def get_match(match_id):
     return query("SELECT * FROM `Match` WHERE match_id = %s;", (match_id,))
 
+
+
 def get_players_in_match(match_id):
     match = get_match(match_id)
     if not match:

@@ -27,6 +27,7 @@ def events():
 def matches():
     """Show all the matches."""
     matches = get_matches()
+    print(matches)
     return render_template("basketball/matches.html", matches=matches)
 
 

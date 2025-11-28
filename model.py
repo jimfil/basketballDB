@@ -35,7 +35,9 @@ def query(sql, params=()):
             return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
     
 
-def get_teams():
+def get_teams(id = None):
+    if id:
+        return query("SELECT * FROM Team WHERE id = %s;", (id,))
     return query("SELECT * FROM Team;")
 
 def get_players():

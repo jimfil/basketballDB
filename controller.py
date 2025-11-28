@@ -1,5 +1,5 @@
-from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores
-from view_cmd import *
+from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams, get_team
+from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams
 
 
 
@@ -14,9 +14,13 @@ def find_playerstats(player_id):
             print("Exiting...")
             break
 
-def view_teams():
-    read_table_entries_for_attribute()
-    pass
+def view_teams(team_id=None):
+    """Controller to view all teams or a single team."""
+    if team_id:
+        teams = get_team(team_id)
+    else:
+        teams = get_teams()
+    display_teams(teams)
 
 def create_team():
     pass
@@ -78,7 +82,7 @@ def obtain_match_scores(match_id):
 
 
 def main_menu(index):
-    if index==1: view_teams()
+    if index==1: view_teams() # This will now show all teams
     elif index==2: create_team()
     elif index==3: get_stats_menu()
     elif index==4: return True
@@ -94,4 +98,6 @@ if __name__ == "__main__":
     while not exit:
         exit = main_menu(int(display_main_menu()))
 
+    # Example of how to view a single team:
+    # view_teams(team_id=1)
     

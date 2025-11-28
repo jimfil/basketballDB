@@ -134,7 +134,7 @@ def get_match_stats(id,i = 0): #
                             JOIN team as t
                             ON pt.team_id = t.id    
                             WHERE ec.match_id = %s
-                            ORDER BY ec.game_time
+                            ORDER BY ec.game_time, ec.event_id
                             LIMIT 10 OFFSET %s'''
                 cur.execute(sql,(id,i*10))                
                 tuples = cur.fetchall()
@@ -158,3 +158,13 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
             sql += " GROUP BY e.name;"
             cur.execute(sql, params)
             return dict(cur.fetchall())
+        
+def get_scores(team1_id,team2_id):
+    with get_connection() as con:
+        with con.cursor() as cur:
+            sql = '''
+
+            '''
+            cur.execute(sql,(team1_id,team2_id))
+            tuples = cur.fetchall()
+            return tuples

@@ -1,4 +1,4 @@
-from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams, get_team
+from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams
 from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams
 
 
@@ -17,10 +17,14 @@ def find_playerstats(player_id):
 def view_teams(team_id=None):
     """Controller to view all teams or a single team."""
     if team_id:
-        teams = get_team(team_id)
+        teams = get_teams(team_id)
     else:
         teams = get_teams()
     display_teams(teams)
+    input("Press Enter to continue...")
+    return
+
+
 
 def create_team():
     pass

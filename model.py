@@ -44,6 +44,45 @@ def get_players():
 def get_matches():
     return query("SELECT * FROM `match`;")
 
+def get_seasons():
+    return query("SELECT * FROM Season;")
+
+def get_phases_by_season(season_year):
+    return query("SELECT * FROM Phase WHERE year = %s;", (season_year,))
+
+def get_rounds_by_phase(phase_id):
+    return query("SELECT * FROM Round WHERE phase_id = %s;", (phase_id,))
+
+def get_matches_by_round(round_id):
+    return query("SELECT * FROM `Match` WHERE matchday_id = %s;", (round_id,))
+
+def get_match(match_id):
+    return query("SELECT * FROM `Match` WHERE match_id = %s;", (match_id,))
+
+def get_players_in_match(match_id):
+    match = get_match(match_id)
+    if not match:
+        return []
+    
+    match = match[0]
+    home_team_id = match['home_team_id']
+    away_team_id = match['away_team_id']
+    
+    home_players = query("""
+        SELECT p.* FROM Person p
+        JOIN Person_Team pt ON p.person_id = pt.person_id
+        WHERE pt.team_id = %s;
+    """, (home_team_id,))
+    
+    away_players = query("""
+        SELECT p.* FROM Person p
+        JOIN Person_Team pt ON p.person_id = pt.person_id
+        WHERE pt.team_id = %s;
+    """, (away_team_id,))
+    
+    return home_players + away_players
+
+
 def create_team(name):
     with get_connection() as con:
         cur = con.cursor()

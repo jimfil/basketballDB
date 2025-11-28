@@ -7,6 +7,7 @@
     <li><a href="{{ url_for('basketball.index') }}">Basketball</a>
     <li><a href="{{ url_for('basketball.events') }}">Events</a>
     <li><a href="{{ url_for('basketball.matches') }}">Matches</a>
+    <li><a href="{{ url_for('explorer.index') }}">Explorer</a>
     {% if g.user %}
       <li><span>{{ g.user['username'] }}</span>
       <li><a href="{{ url_for('auth.logout') }}">Log Out</a>

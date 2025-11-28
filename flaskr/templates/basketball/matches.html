@@ -19,10 +19,10 @@
       {% for match in matches %}
         <tr>
           <td><a href="{{ url_for('basketball.match_details', id=match['id']) }}">{{ match['id'] }}</a></td>
-          <td>{{ match['date'] }}</td>
-          <td>{{ match['location'] }}</td>
-          <td>{{ match['team_1_id'] }}</td>
-          <td>{{ match['team_2_id'] }}</td>
+          <td>{{ match['match_date'] }}</td>
+          <td>{{ match['stadium_id'] }}</td>
+          <td>{{ match['home_team_id'] }}</td>
+          <td>{{ match['away_team_id'] }}</td>
         </tr>
       {% endfor %}
     </tbody>

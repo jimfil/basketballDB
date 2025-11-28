@@ -64,7 +64,7 @@ def return_attributes(table_name): #Input is a santized dropdown box. Cannot use
             columns = cur.fetchall()
             return [col[0] for col in columns]
         
-def read_table_entries_for_attribute(table_name,list_table_attribute): 
+def read_table_entries_for_attribute(table_name,list_table_attribute = ["id"]):  #ean den baloume orisma epistrefei mono to id
     with get_connection() as con:
         with con.cursor() as cur:
             lista =[]
@@ -76,14 +76,11 @@ def read_table_entries_for_attribute(table_name,list_table_attribute):
 
 def create_entry(table_name,list_user_input):
     col_names = return_attributes(table_name)
-    columns_str = ", ".join(col_names)
+    columns_str = ", ".join(col_names) 
     placeholders = ", ".join(["%s"] * len(list_user_input)) #tha prepei na ta dinoume me thn swsth seira sto controller
     with get_connection() as con:
         with con.cursor() as cur:
-            # 3. Construct Query
             sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
-            
-            # 4. Execute with SAFE parameters
             cur.execute(sql, list_user_input)
             con.commit()
             print("Entry created.")

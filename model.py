@@ -110,13 +110,27 @@ def get_all_events():
 def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
     with get_connection() as con:
             with con.cursor() as cur:
-                cur.execute("SELECT * FROM event_creation WHERE person_id = %s LIMIT 10 OFFSET %s",(id,i*10))
+                cur.execute('''SELECT ec.match_id, e.name, ec.game_time
+                            FROM event_creation as ec
+                            JOIN event as e
+                            ON ec.event_id = e.id
+                            WHERE person_id = %s
+                            LIMIT 10 OFFSET %s''',(id,i*10))
                 tuples = cur.fetchall()
                 return tuples
 
 def get_match_stats(id,i = 0): # 
     with get_connection() as con:
             with con.cursor() as cur:
-                cur.execute("SELECT * FROM event_creation WHERE match_id = %s LIMIT 10 OFFSET %s",(id,i*10))
+                cur.execute('''SELECT pt.shirt_number, p.last_name, e.name, ec.game_time
+                            FROM event_creation as ec
+                            JOIN event as e
+                            ON ec.event_id = e.id
+                            JOIN person as p
+                            ON ec.person_id = p.id
+                            JOIN person_team as pt
+                            ON p.id = pt.person_id
+                            WHERE person_id = %s
+                            LIMIT 10 OFFSET %s''',(id,i*10))                
                 tuples = cur.fetchall()
                 return tuples

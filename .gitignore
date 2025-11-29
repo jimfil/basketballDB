@@ -1,7 +1,4 @@
 .env
-matchDB.sql
-init_db.py
-populate_huge.py
 __pycache__/
 .venv/
 

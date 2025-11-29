@@ -54,17 +54,24 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
         if home_id not in team_rosters or away_id not in team_rosters:
             print(f"Skipping match {m_id} due to missing roster.")
             continue
-            
-        home_roster = team_rosters[home_id][:]
-        away_roster = team_rosters[away_id][:]
         
-        # On Court / Bench
-        on_court = { 'home': set(home_roster[:5]), 'away': set(away_roster[:5]) }
-        bench = { 'home': list(home_roster[5:]), 'away': list(away_roster[5:]) }
+        # UNPACK ROSTERS (Players vs Coaches)
+        home_data = team_rosters[home_id]
+        away_data = team_rosters[away_id]
+        
+        home_players = home_data['players'][:]
+        away_players = away_data['players'][:]
+        home_coaches = home_data['coaches'][:] # Valid targets for Techs only
+        away_coaches = away_data['coaches'][:]
+        
+        # On Court / Bench (PLAYERS ONLY)
+        on_court = { 'home': set(home_players[:5]), 'away': set(away_players[:5]) }
+        bench = { 'home': list(home_players[5:]), 'away': list(away_players[5:]) }
         
         # Stats
         scores = {'home': 0, 'away': 0}
-        player_fouls = {pid: 0 for pid in home_roster + away_roster}
+        # Track fouls for players only for disqualification purposes
+        player_fouls = {pid: 0 for pid in home_players + away_players}
         team_fouls = {'home': 0, 'away': 0}
         
         # Helper to log event
@@ -90,6 +97,7 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                 atk = possession
                 dfn = 'away' if atk == 'home' else 'home'
                 
+                # Select Players (Coaches never selected here)
                 attacker = random.choice(list(on_court[atk]))
                 defender = random.choice(list(on_court[dfn]))
                 
@@ -121,14 +129,45 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                             on_court[atk].add(sub)
                             log(attacker, 'Substitution', current_time)
                             log(sub, 'Substitution', current_time)
-                    else:
+                            
+                    elif ftype == 'Technical Foul':
+                        # SPECIAL LOGIC: Can be Player OR Coach
+                        # 30% chance it's a Coach Technical
+                        is_coach_tech = random.random() < 0.30
+                        
+                        target_side = random.choice([atk, dfn]) # Could be either team complaining
+                        
+                        if is_coach_tech:
+                            coaches_list = home_coaches if target_side == 'home' else away_coaches
+                            if coaches_list:
+                                coach_id = random.choice(coaches_list)
+                                log(coach_id, 'Technical Foul', current_time)
+                                # Coaches don't foul out in this simple sim, but award free throw
+                        else:
+                            # Player Tech
+                            p_target = random.choice(list(on_court[target_side]))
+                            log(p_target, 'Technical Foul', current_time)
+                            player_fouls[p_target] += 1 # Personal tally usually counts
+                        
+                        # Technical Penalty (1 shot always)
+                        shooter_side = 'away' if target_side == 'home' else 'home'
+                        shooter = random.choice(list(on_court[shooter_side]))
+                        
+                        res = random.choice(['Made', 'Attempt'])
+                        log(shooter, f"Free Throw {res}", current_time)
+                        if res == 'Made': scores[shooter_side] += 1
+                        
+                        # Possession usually stays with team that had it (unless T is part of larger incident), 
+                        # simplified: keep possession flow or switch if it was defensive foul logic. 
+                        # We'll just keep `possession` as is (atk).
+
+                    else: # Personal or Flagrant (Defensive)
                         log(defender, ftype, current_time)
                         player_fouls[defender] += 1
-                        if ftype != 'Technical Foul': team_fouls[dfn] += 1
+                        team_fouls[dfn] += 1
                         
                         shots = 0
                         if ftype == 'Flagrant Foul': shots = 2
-                        elif ftype == 'Technical Foul': shots = 1
                         elif team_fouls[dfn] > 4: shots = 2
                         
                         if shots > 0:
@@ -259,11 +298,19 @@ def run_tournament(conn, cursor):
         return
     teams_24 = all_teams[:24] 
     
-    cursor.execute("SELECT team_id, person_id FROM Person_Team")
-    rosters = {}
-    for t, p in cursor.fetchall():
-        if t not in rosters: rosters[t] = []
-        rosters[t].append(p)
+    # FETCH ROSTERS WITH SPECIALITY
+    cursor.execute("""
+        SELECT pt.team_id, pt.person_id, p.speciality 
+        FROM Person_Team pt
+        JOIN Person p ON pt.person_id = p.id
+    """)
+    rosters = {} # Structure: {team_id: {'players': [id, id], 'coaches': [id]}}
+    for t, p, spec in cursor.fetchall():
+        if t not in rosters: rosters[t] = {'players': [], 'coaches': []}
+        if spec == 'Coach':
+            rosters[t]['coaches'].append(p)
+        else:
+            rosters[t]['players'].append(p)
         
     cursor.execute("SELECT name, id FROM Event")
     e_map = {r[0]: r[1] for r in cursor.fetchall()}

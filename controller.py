@@ -1,4 +1,4 @@
-from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams, get_player
+from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams, get_players
 from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams, display_team_menu, shot_percentage_menu, display_players_paginated, display_matches_for_team, get_player_selection_input
 
 
@@ -15,16 +15,35 @@ def find_playerstats(player_id):
             print("Exiting...")
             break
 
-def view_teams(team_id=None):
+def view_teams():
     """Controller to view all teams or a single team."""
-    if team_id:
-        teams = get_teams(team_id)
-    else:
-        teams = get_teams()
-    display_teams(teams)
-    input("Press Enter to continue...")
-    return
+    offset = 0
+    all_teams = set()
+    while True:
+        teams = get_teams(offset)
+        all_teams.update(t[1] for t in teams)
+        user_input = display_teams(teams)
+        if user_input == '': offset += 1; continue
+        
+        if user_input.lower() == 'q': return user_input
+         
 
+def select_player():
+    all_player_ids = set()
+    page = 0
+    while True:
+        players_to_show = get_players(page)
+        if not players_to_show:
+            print("No more players found.")
+            break
+        all_player_ids.update(p[1] for p in players_to_show)
+        display_players_paginated(players_to_show)
+
+        user_input = get_player_selection_input()
+        if user_input.lower() == 'q': return None
+        if user_input == '': page += 1; continue
+        if user_input.isdigit() and int(user_input) in all_player_ids: return int(user_input)
+        print("Invalid input. Please try again.")
 
 
 def create_team():
@@ -85,7 +104,6 @@ def obtain_match_scores(match_id):
         print(f"Match with ID {match_id} not found.")
 
 
-
 def team_menu(index):
     """Handles the team management menu logic."""
     if index == 1:
@@ -111,33 +129,15 @@ def shot_percentage_control():
         find_player_shot_percentage(player_id, shot_map[choice])
     # "4" is back, so we do nothing.
 
-def select_player():
-    all_player_ids = []
-    page = 0
-    while True:
-        players_to_show = get_player(page)
-        if not players_to_show:
-            print("No more players found.")
-            break
-        all_player_ids.append(players_to_show)
 
-        display_players_paginated(players_to_show)
-
-        
-        
-        user_input = get_player_selection_input()
-        if user_input.lower() == 'q': return None
-        if user_input == '': page += 1; continue
-        if user_input.isdigit() and int(user_input) in all_player_ids: return int(user_input)
-        print("Invalid input. Please try again.")
 
 
 def stats_menu(index):
     """Handles the team management menu logic."""
     if index == 1:
         find_playerstats(select_player())
-    elif index == 2:
-        pass
+    elif index == 2:                # dialegw omada -> blepw agwnes (Omada 1 - Omada 2) (73 - 68 )
+        pass                        
     elif index == 3:
         shot_percentage_control()
     elif index == 4:

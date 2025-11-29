@@ -57,15 +57,19 @@ def display_match_score(match_id, scores):
 def display_teams(teams):
     """Displays a list of teams in a formatted way."""
     if not teams:
-        print("No teams found.")
-        return
+        print("End of teams list.")
+        return 'q'
     
     print("\n--- Team List ---")
     print(f"{'ID':<10}{'Name'}")
-    print("-" * 25)
+    print("")
     for team in teams:
-        print(f"{team['id']:<10}{team['name']}")
-    print("-----------------")
+        print(f"{team[0]:<10}{team[1]}")
+    print("")
+
+    return input("\nPress [Enter] for next page, or 'q' to quit: ").strip()
+    
+
 
 def get_stats_menu():
     print("What stats would you like to view?")

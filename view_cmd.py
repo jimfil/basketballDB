@@ -1,7 +1,7 @@
 def display_main_menu():
     print("Press one of the following options:")
     print("1: View Teams")
-    print("2: Create Team")
+    print("2: View League")
     print("3: Stats")
     print("4: Exit")
     valid_answers = ["1", "2", "3", "4"] 

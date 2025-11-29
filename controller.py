@@ -93,11 +93,26 @@ def team_menu(index):
         create_team()
     elif index == 3:
         return  # Go back
+    else: team_menu(int(display_team_menu()))
+
+def stats_menu(index):
+    """Handles the team management menu logic."""
+    if index == 1:
+        view_teams()
+    elif index == 2:
+        create_team()
+    elif index == 3:
+        return  # Go back
+    elif index == 4:
+        return  # Go back
+    elif index == 5:
+        return  # Go back
+    else: stats_menu(int(get_stats_menu()))
 
 def main_menu(index):
-    if index==1: team_menu(int(get_stats_menu()))
+    if index==1: team_menu(int(display_team_menu()))
     elif index==2: pass
-    elif index==3: get_stats_menu()
+    elif index==3: stats_menu(int(get_stats_menu()))
     elif index==4: return True
     return False
 

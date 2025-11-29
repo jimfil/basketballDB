@@ -10,16 +10,33 @@ CREATE TABLE `Team` (
   `name` varchar(255),
   UNIQUE (`name`)
 );
+CREATE TABLE `Season` (
+  `year` int AUTO_INCREMENT PRIMARY KEY
+);
 
+CREATE TABLE `Phase` (
+  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `phase_id` int,
+  `year` int,
+  FOREIGN KEY (`year`) REFERENCES `Season` (`year`)
+);
+
+CREATE TABLE `Round` (
+  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `round_id` int,
+  `phase_id` int,
+  FOREIGN KEY (`phase_id`) REFERENCES `Phase` (`id`)
+);
 
 CREATE TABLE `Match` (
   `id` int AUTO_INCREMENT PRIMARY KEY,
   `match_date` date,
   `status` ENUM ('Scheduled', 'Ongoing', 'Completed', 'Stopped'),
-  `matchday_id` int,
+  `round_id` int,
   `stadium_id` int,  
   `home_team_id` int,
   `away_team_id` int,
+  FOREIGN KEY (`round_id`) REFERENCES `Round` (`id`),
   FOREIGN KEY (`stadium_id`) REFERENCES `Stadium` (`id`),
   FOREIGN KEY (`home_team_id`) REFERENCES `Team` (`id`),
   FOREIGN KEY (`away_team_id`) REFERENCES `Team` (`id`)
@@ -56,23 +73,7 @@ CREATE TABLE `Person` (
   `speciality` ENUM ('Player', 'Coach')
 );
 
-CREATE TABLE `Season` (
-  `year` int AUTO_INCREMENT PRIMARY KEY
-);
 
-CREATE TABLE `Phase` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `phase_id` int,
-  `year` int,
-  FOREIGN KEY (`year`) REFERENCES `Season` (`year`)
-);
-
-CREATE TABLE `Round` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `round_id` int,
-  `phase_id` int,
-  FOREIGN KEY (`phase_id`) REFERENCES `Phase` (`id`)
-);
 
 CREATE TABLE `Referee` (
   `id` int AUTO_INCREMENT PRIMARY KEY,

@@ -1,5 +1,5 @@
-from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams
-from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams, display_team_menu
+from model import get_match_stats,get_player_stats, get_player_shot_stats, get_scores, get_teams, get_player
+from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams, display_team_menu, shot_percentage_menu, display_players_paginated, display_matches_for_team, get_player_selection_input
 
 
 
@@ -8,6 +8,7 @@ def find_playerstats(player_id):
         results = get_player_stats(player_id, i)    #epistrefei Game -> Event Name -> Time
         display_player_stats(i + 1, results)
         if not results:
+            print("No more stats found for this Player. Exiting...")
             break
         user_input = input("\nPress [Enter] to get next 10, or type 'q' to break: ")
         if user_input.lower() == 'q':
@@ -95,14 +96,50 @@ def team_menu(index):
         return  # Go back
     else: team_menu(int(display_team_menu()))
 
+def shot_percentage_control():
+    player_id = select_player()
+    if not player_id:
+        return # User quit selection
+
+    choice = shot_percentage_menu()
+    shot_map = {
+        "1": "Free Throw",
+        "2": "2-Point Field Goal",
+        "3": "3-Point Field Goal"
+    }
+    if choice in shot_map:
+        find_player_shot_percentage(player_id, shot_map[choice])
+    # "4" is back, so we do nothing.
+
+def select_player():
+    all_player_ids = []
+    page = 0
+    while True:
+        players_to_show = get_player(page)
+        if not players_to_show:
+            print("No more players found.")
+            break
+        all_player_ids.append(players_to_show)
+
+        display_players_paginated(players_to_show)
+
+        
+        
+        user_input = get_player_selection_input()
+        if user_input.lower() == 'q': return None
+        if user_input == '': page += 1; continue
+        if user_input.isdigit() and int(user_input) in all_player_ids: return int(user_input)
+        print("Invalid input. Please try again.")
+
+
 def stats_menu(index):
     """Handles the team management menu logic."""
     if index == 1:
-        view_teams()
+        find_playerstats(select_player())
     elif index == 2:
-        create_team()
+        pass
     elif index == 3:
-        return  # Go back
+        shot_percentage_control()
     elif index == 4:
         return  # Go back
     elif index == 5:

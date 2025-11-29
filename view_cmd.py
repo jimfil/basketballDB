@@ -1,6 +1,6 @@
 def display_main_menu():
     print("Press one of the following options:")
-    print("1: View Teams")
+    print("1: Team Menu")
     print("2: View League")
     print("3: Stats")
     print("4: Exit")
@@ -11,6 +11,9 @@ def display_main_menu():
         print("Please Input a Valid Number (1-4)")
         answer = input("Awaiting Response: ")
     return answer
+
+def get_player_id():
+    print("")
 
 def display_player_stats(page_num, stats):
     """Displays a formatted page of player stats."""
@@ -78,6 +81,18 @@ def get_stats_menu():
         answer = input("Awaiting Response: ")
     return answer
 
+def shot_percentage_menu():
+    print("1: Free Throws")
+    print("2: 2 Point Shoots")
+    print("3: 3 Point Shoots")
+    print("4: Back to Main Menu")
+    valid_answers = ["1", "2", "3", "4"]
+    answer = input("Awaiting Response: ")
+    while answer not in valid_answers:
+        print("Please Input a Valid Number (1-4)")
+        answer = input("Awaiting Response: ")
+    return answer
+
 def display_team_menu(): 
     """Displays the team management menu and gets user input."""
     print("\n--- Team Management ---")
@@ -90,3 +105,32 @@ def display_team_menu():
         print("Please Input a Valid Number (1-3)")
         answer = input("Awaiting Response: ")
     return answer
+
+def display_players_paginated(players):
+    """Displays a paginated list of players."""
+    if not players:
+        print("No more players found.")
+        return
+
+    print(f"{'Speciality':<20}{'ID':<10}{'First Name':<20}{'Last Name':<20}{'Number Shirt':<20}{'Team ID'}")
+    print("")
+    for player in players:
+        print(f"{player[0]:<20}{player[1]:<10}{player[2]:<20}{player[3]:<20}{player[4]:<20}{player[5]:<20}")
+    print("")
+
+def display_matches_for_team(team_name, matches):
+    """Displays a list of matches for a specific team."""
+    print(f"\n--- Matches for {team_name} ---")
+    if not matches:
+        print("No matches found for this team.")
+        return
+
+    print(f"{'ID':<10}{'Date':<15}{'Home Team ID':<15}{'Away Team ID'}")
+    print("-" * 55)
+    for match in matches:
+        print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_id']:<15}{match['away_team_id']}")
+    print("-" * 55)
+
+def get_player_selection_input():
+    """Gets user input for player selection, pagination, or quitting."""
+    return input("\nEnter a player ID to select, press [Enter] for next page, or 'q' to quit: ").strip()

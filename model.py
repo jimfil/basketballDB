@@ -40,8 +40,8 @@ def get_teams(id = None):
         return query("SELECT * FROM Team WHERE id = %s;", (id,))
     return query("SELECT * FROM Team;")
 
-def get_players():
-    return query("SELECT * FROM Person;")
+def get_players(offset):
+    return query("SELECT * FROM Person LIMIT 10 OFFSET %s;", (offset,))
 
 def get_matches():
     return query("SELECT * FROM `match`;")
@@ -60,6 +60,9 @@ def get_matches_by_round(round_id):
 
 def get_match(match_id):
     return query("SELECT * FROM `Match` WHERE match_id = %s;", (match_id,))
+
+def get_matches_by_team(team_id):
+    return query("SELECT * FROM `Match` WHERE home_team_id = %s OR away_team_id = %s ORDER BY match_date DESC;", (team_id, team_id))
 
 
 
@@ -163,6 +166,18 @@ def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
                             WHERE ec.person_id = %s
                             LIMIT 10 OFFSET %s'''
                 cur.execute(sql,(id,i*10))
+                tuples = cur.fetchall()
+                return tuples
+
+def get_player(i = 0): # dineis player id kai posa 10 thes na skipareis
+    with get_connection() as con:
+            with con.cursor() as cur:
+                sql ='''SELECT p.speciality,p.id, p.first_name, p.last_name, pt.shirt_num,pt.team_id
+                            FROM person as p
+                            JOIN person_team as pt
+                            ON p.id = pt.person_id
+                            LIMIT 10 OFFSET %s'''
+                cur.execute(sql,(i*10))
                 tuples = cur.fetchall()
                 return tuples
 

@@ -240,10 +240,6 @@ def run_tournament(conn, cursor):
         cursor.execute("INSERT INTO Phase (id, phase_id, year) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE year=year", (p_id, p_id, START_YEAR))
         
     phase_rounds_map = {}
-    
-    # Define Round Counts
-    # Phase 1: 5 Rounds (Single Round Robin for group of 6)
-    # Phase 2: 4 Rounds (R16, QF, SF, Finals)
     rounds_config = {1: 5, 2: 4} 
     
     for p_id, r_count in rounds_config.items():
@@ -275,40 +271,66 @@ def run_tournament(conn, cursor):
     cursor.execute("SELECT id FROM Stadium")
     stadiums = [r[0] for r in cursor.fetchall()]
     
+    cursor.execute("SELECT id FROM Referee")
+    referees = [r[0] for r in cursor.fetchall()]
+    
+    # ASSIGN HOME STADIUMS TO TEAMS
+    team_home_stadiums = {}
+    random.shuffle(stadiums)
+    for i, tid in enumerate(teams_24):
+        team_home_stadiums[tid] = stadiums[i % len(stadiums)]
+    
     match_id_counter = 80000
     start_date = date(START_YEAR, 10, 1)
     
+    # Helper for linking
+    team_stadium_buffer = [] # (team_id, stadium_id, round_id)
+    match_referee_buffer = [] # (match_id, referee_id)
+    
+    def process_match_links(mid, hid, aid, sid, rid):
+        # 1. Link Refs
+        match_refs = random.sample(referees, 3)
+        for ref in match_refs:
+            match_referee_buffer.append((mid, ref))
+        
+        # 2. Link Teams to Stadium for this Round
+        # PK is (team, stadium, round). Use IGNORE to avoid duplicates if multiple games in same round (e.g. bracket logic)
+        team_stadium_buffer.append((hid, sid, rid))
+        team_stadium_buffer.append((aid, sid, rid))
+
     # ==========================================
     # PHASE 1: GROUP STAGE (4 Groups of 6)
     # ==========================================
     print("\n[PHASE 1] Groups Phase (4 Groups x 6 Teams)")
     
-    # Shuffle and Split
     random.shuffle(teams_24)
-    groups = [teams_24[i:i+6] for i in range(0, 24, 6)] # 4 groups
+    groups = [teams_24[i:i+6] for i in range(0, 24, 6)] 
     
-    group_standings = {t: 0 for t in teams_24} # Track wins
+    group_standings = {t: 0 for t in teams_24}
     p1_matches = []
-    p1_round_ids = phase_rounds_map[1] # [R1, R2, R3, R4, R5]
+    p1_round_ids = phase_rounds_map[1] 
     
-    # Generate Matches for each group (Single RR)
     for g_idx, group in enumerate(groups):
-        schedule = generate_single_rr(group) # Should return 5 rounds
-        
+        schedule = generate_single_rr(group)
         for r_idx, round_matches in enumerate(schedule):
-            # r_idx 0-4 corresponds to p1_round_ids 0-4
             current_round_pk = p1_round_ids[r_idx]
             match_date = start_date + timedelta(weeks=r_idx)
             
             for h, a in round_matches:
                 mid = match_id_counter
                 match_id_counter += 1
+                
+                # Determine Stadium (Home Team's)
+                stadium = team_home_stadiums[h]
+                
                 p1_matches.append((mid, h, a, match_date))
                 
                 cursor.execute("""
                     INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) 
                     VALUES (%s, %s, 'Completed', %s, %s, %s, %s)
-                """, (mid, match_date, current_round_pk, random.choice(stadiums), h, a))
+                """, (mid, match_date, current_round_pk, stadium, h, a))
+                
+                process_match_links(mid, h, a, stadium, current_round_pk)
                 
     conn.commit()
     
@@ -317,16 +339,13 @@ def run_tournament(conn, cursor):
     results = simulate_match_batch(cursor, p1_matches, rosters, e_map)
     conn.commit()
     
-    # Update Standings
     for res in results.values():
         group_standings[res['winner']] += 1
         
-    # Determine Qualifiers (Top 4 from each group)
     knockout_qualifiers = []
     for group in groups:
-        # Sort by wins desc
         sorted_g = sorted(group, key=lambda t: group_standings[t], reverse=True)
-        knockout_qualifiers.extend(sorted_g[:4]) # Take top 4
+        knockout_qualifiers.extend(sorted_g[:4]) 
         
     print(f"   -> {len(knockout_qualifiers)} teams qualified for Finals Phase.")
     
@@ -335,32 +354,28 @@ def run_tournament(conn, cursor):
     # ==========================================
     print("\n[PHASE 2] Finals Phase")
     
-    # We have 16 teams.
-    # Rounds: R16 -> QF -> SF -> Finals
-    p2_round_ids = phase_rounds_map[2] # [R16_id, QF_id, SF_id, Final_id]
-    
+    p2_round_ids = phase_rounds_map[2]
     current_teams = knockout_qualifiers
-    random.shuffle(current_teams) # Random seeding for bracket
+    random.shuffle(current_teams)
     
-    current_date = start_date + timedelta(weeks=10) # Start finals later
+    current_date = start_date + timedelta(weeks=10)
     
     # --- Round 1: Round of 16 (8 Games) ---
     print("   -> Round of 16")
     r16_matches = []
     r16_pk = p2_round_ids[0]
     
-    # Create pairs
     for i in range(0, 16, 2):
         h, a = current_teams[i], current_teams[i+1]
         mid = match_id_counter; match_id_counter += 1
+        stadium = team_home_stadiums[h]
         r16_matches.append((mid, h, a, current_date))
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, current_date, r16_pk, random.choice(stadiums), h, a))
+        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, current_date, r16_pk, stadium, h, a))
+        process_match_links(mid, h, a, stadium, r16_pk)
     
     conn.commit()
     r16_res = simulate_match_batch(cursor, r16_matches, rosters, e_map)
     conn.commit()
-    
-    # Get Winners for QF
     qf_teams = [r16_res[m[0]]['winner'] for m in r16_matches]
     
     # --- Round 2: Quarter-Finals (4 Games) ---
@@ -372,13 +387,14 @@ def run_tournament(conn, cursor):
     for i in range(0, 8, 2):
         h, a = qf_teams[i], qf_teams[i+1]
         mid = match_id_counter; match_id_counter += 1
+        stadium = team_home_stadiums[h]
         qf_matches.append((mid, h, a, current_date))
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, current_date, qf_pk, random.choice(stadiums), h, a))
+        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, current_date, qf_pk, stadium, h, a))
+        process_match_links(mid, h, a, stadium, qf_pk)
         
     conn.commit()
     qf_res = simulate_match_batch(cursor, qf_matches, rosters, e_map)
     conn.commit()
-    
     sf_teams = [qf_res[m[0]]['winner'] for m in qf_matches]
     
     # --- Round 3: Semi-Finals (2 Games) ---
@@ -387,25 +403,25 @@ def run_tournament(conn, cursor):
     sf_pk = p2_round_ids[2]
     current_date += timedelta(days=7)
     
-    # SF 1
+    # SF 1 & 2
     mid1 = match_id_counter; match_id_counter += 1
+    st1 = team_home_stadiums[sf_teams[0]] # Higher seed home
     sf_matches.append((mid1, sf_teams[0], sf_teams[1], current_date))
-    
-    # SF 2
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid1, current_date, sf_pk, st1, sf_teams[0], sf_teams[1]))
+    process_match_links(mid1, sf_teams[0], sf_teams[1], st1, sf_pk)
+
     mid2 = match_id_counter; match_id_counter += 1
+    st2 = team_home_stadiums[sf_teams[2]]
     sf_matches.append((mid2, sf_teams[2], sf_teams[3], current_date))
-    
-    for m in sf_matches:
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (m[0], m[3], sf_pk, random.choice(stadiums), m[1], m[2]))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid2, current_date, sf_pk, st2, sf_teams[2], sf_teams[3]))
+    process_match_links(mid2, sf_teams[2], sf_teams[3], st2, sf_pk)
         
     conn.commit()
     sf_res = simulate_match_batch(cursor, sf_matches, rosters, e_map)
     conn.commit()
     
-    # Determine Finalists and 3rd Place Contenders
-    final_teams = [] # [Winner1, Winner2]
-    third_teams = [] # [Loser1, Loser2]
-    
+    final_teams = [] 
+    third_teams = [] 
     for m in sf_matches:
         mid = m[0]
         winner = sf_res[mid]['winner']
@@ -417,21 +433,32 @@ def run_tournament(conn, cursor):
     print("   -> Finals & 3rd Place")
     fin_matches = []
     fin_pk = p2_round_ids[3]
-    current_date += timedelta(days=2) # Weekend finals
+    current_date += timedelta(days=2) 
     
-    # 3rd Place Game
+    # 3rd Place
     mid_3rd = match_id_counter; match_id_counter += 1
+    st_3rd = team_home_stadiums[third_teams[0]]
     fin_matches.append((mid_3rd, third_teams[0], third_teams[1], current_date))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid_3rd, current_date, fin_pk, st_3rd, third_teams[0], third_teams[1]))
+    process_match_links(mid_3rd, third_teams[0], third_teams[1], st_3rd, fin_pk)
     
-    # Championship Game
+    # Final
     mid_final = match_id_counter; match_id_counter += 1
+    st_fin = team_home_stadiums[final_teams[0]]
     fin_matches.append((mid_final, final_teams[0], final_teams[1], current_date))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid_final, current_date, fin_pk, st_fin, final_teams[0], final_teams[1]))
+    process_match_links(mid_final, final_teams[0], final_teams[1], st_fin, fin_pk)
     
-    for m in fin_matches:
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (m[0], m[3], fin_pk, random.choice(stadiums), m[1], m[2]))
-        
     conn.commit()
     fin_res = simulate_match_batch(cursor, fin_matches, rosters, e_map)
+    
+    # INSERT LINKING DATA
+    if match_referee_buffer:
+        cursor.executemany("INSERT IGNORE INTO Match_Referee (match_id, referee_id) VALUES (%s, %s)", match_referee_buffer)
+    if team_stadium_buffer:
+        # Using IGNORE to handle cases where a team plays multiple games in same Round ID (if bracket structure was different)
+        cursor.executemany("INSERT IGNORE INTO Team_stadium (team_id, stadium_id, round_id) VALUES (%s, %s, %s)", team_stadium_buffer)
+    
     conn.commit()
     
     champion = fin_res[mid_final]['winner']
@@ -439,27 +466,19 @@ def run_tournament(conn, cursor):
     print(f"*** TOURNAMENT CHAMPION: {cursor.fetchone()[0]} ***")
 
 def generate_single_rr(team_ids):
-    """
-    Generates a Single Round Robin schedule for N teams.
-    Returns a list of lists: [ [(h,a), (h,a)...], ... ] where each inner list is a round.
-    """
     if len(team_ids) % 2 != 0: team_ids.append(None)
     n = len(team_ids)
     rounds = []
-    
-    # Polygon method
     ids = team_ids[:]
     for r in range(n-1):
         round_matches = []
         for i in range(n//2):
             t1, t2 = ids[i], ids[n-1-i]
             if t1 is not None and t2 is not None:
-                # Random home/away
                 if random.choice([True, False]): round_matches.append((t1, t2))
                 else: round_matches.append((t2, t1))
         rounds.append(round_matches)
-        ids.insert(1, ids.pop()) # Rotate
-        
+        ids.insert(1, ids.pop())
     return rounds
 
 def setup_static_data(conn, cursor):
@@ -470,6 +489,9 @@ def setup_static_data(conn, cursor):
     # Stadiums
     stadiums = [(fake.city(), f"{fake.company()} Arena", random.randint(10000, 90000)) for _ in range(NUM_STADIUMS)]
     cursor.executemany("INSERT IGNORE INTO Stadium (location, name, capacity) VALUES (%s, %s, %s)", stadiums)
+    # Referees
+    referees = [(3000 + i, fake.first_name(), fake.last_name()) for i in range(NUM_REFEREES)]
+    cursor.executemany("INSERT IGNORE INTO Referee (id, first_name, last_name) VALUES (%s, %s, %s)", referees)
     # Events
     evts = ['Turnover', 'Steal', 'Block', 'Offensive Rebound', 'Defensive Rebound', 'Personal Foul', 'Technical Foul', 'Flagrant Foul', 'Offensive Foul', 'Substitution', 'Free Throw Made', 'Free Throw Attempt', '2-Point Field Goal Made', '2-Point Field Goal Attempt', '3-Point Field Goal Made', '3-Point Field Goal Attempt', 'Assist', 'Time running out']
     cursor.executemany("INSERT IGNORE INTO Event (id, name) VALUES (%s, %s)", [(i+1, n) for i, n in enumerate(evts)])

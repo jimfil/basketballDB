@@ -12,12 +12,11 @@ load_dotenv()
 fake = Faker()
 
 # --- CONFIGURATION ---
-# Adjusted to 24 teams to fit "4 groups of 6"
 NUM_TEAMS = 24 
 NUM_STADIUMS = 24
 NUM_REFEREES = 40
 PLAYERS_PER_TEAM = 12 
-START_YEAR = 2024
+YEARS_TO_SIMULATE = [2021, 2022, 2023, 2024]
 
 # Connect to Database
 def get_connection():
@@ -61,7 +60,7 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
         
         home_players = home_data['players'][:]
         away_players = away_data['players'][:]
-        home_coaches = home_data['coaches'][:] # Valid targets for Techs only
+        home_coaches = home_data['coaches'][:] 
         away_coaches = away_data['coaches'][:]
         
         # On Court / Bench (PLAYERS ONLY)
@@ -70,7 +69,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
         
         # Stats
         scores = {'home': 0, 'away': 0}
-        # Track fouls for players only for disqualification purposes
         player_fouls = {pid: 0 for pid in home_players + away_players}
         team_fouls = {'home': 0, 'away': 0}
         
@@ -89,7 +87,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
             possession = 'home' if quarter in [1, 4] else 'away'
 
             while current_time < end_time:
-                # Time usage
                 time_used = random.randint(8, 24)
                 current_time += timedelta(seconds=time_used)
                 if current_time >= end_time: break
@@ -97,13 +94,12 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                 atk = possession
                 dfn = 'away' if atk == 'home' else 'home'
                 
-                # Select Players (Coaches never selected here)
                 attacker = random.choice(list(on_court[atk]))
                 defender = random.choice(list(on_court[dfn]))
                 
                 outcome = random.random()
                 
-                # 1. Turnover (15%)
+                # 1. Turnover
                 if outcome < 0.15:
                     etype = random.choice(['Turnover', 'Steal', 'Time running out'])
                     if etype == 'Steal':
@@ -111,9 +107,9 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                         log(attacker, 'Turnover', current_time)
                     else:
                         log(attacker, etype, current_time)
-                    possession = dfn # Switch
+                    possession = dfn 
                 
-                # 2. Foul (15%)
+                # 2. Foul
                 elif outcome < 0.30:
                     ftype = random.choices(['Personal Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul'], weights=[70,15,10,5])[0]
                     
@@ -122,7 +118,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                         player_fouls[attacker] += 1
                         team_fouls[atk] += 1
                         possession = dfn
-                        # Disqualification
                         if player_fouls[attacker] >= 5 and bench[atk]:
                             sub = bench[atk].pop(0)
                             on_court[atk].remove(attacker)
@@ -131,37 +126,26 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                             log(sub, 'Substitution', current_time)
                             
                     elif ftype == 'Technical Foul':
-                        # SPECIAL LOGIC: Can be Player OR Coach
-                        # 30% chance it's a Coach Technical
                         is_coach_tech = random.random() < 0.30
-                        
-                        target_side = random.choice([atk, dfn]) # Could be either team complaining
+                        target_side = random.choice([atk, dfn])
                         
                         if is_coach_tech:
                             coaches_list = home_coaches if target_side == 'home' else away_coaches
                             if coaches_list:
                                 coach_id = random.choice(coaches_list)
                                 log(coach_id, 'Technical Foul', current_time)
-                                # Coaches don't foul out in this simple sim, but award free throw
                         else:
-                            # Player Tech
                             p_target = random.choice(list(on_court[target_side]))
                             log(p_target, 'Technical Foul', current_time)
-                            player_fouls[p_target] += 1 # Personal tally usually counts
+                            player_fouls[p_target] += 1
                         
-                        # Technical Penalty (1 shot always)
                         shooter_side = 'away' if target_side == 'home' else 'home'
                         shooter = random.choice(list(on_court[shooter_side]))
-                        
                         res = random.choice(['Made', 'Attempt'])
                         log(shooter, f"Free Throw {res}", current_time)
                         if res == 'Made': scores[shooter_side] += 1
-                        
-                        # Possession usually stays with team that had it (unless T is part of larger incident), 
-                        # simplified: keep possession flow or switch if it was defensive foul logic. 
-                        # We'll just keep `possession` as is (atk).
 
-                    else: # Personal or Flagrant (Defensive)
+                    else: # Personal or Flagrant
                         log(defender, ftype, current_time)
                         player_fouls[defender] += 1
                         team_fouls[dfn] += 1
@@ -188,9 +172,8 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                                     log(random.choice(list(on_court[atk])), 'Offensive Rebound', current_time)
                                     possession = atk
                         else:
-                            possession = atk # Side out
+                            possession = atk 
                             
-                        # Disqualification
                         if player_fouls[defender] >= 5 and bench[dfn]:
                             sub = bench[dfn].pop(0)
                             on_court[dfn].remove(defender)
@@ -198,7 +181,7 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                             log(defender, 'Substitution', current_time)
                             log(sub, 'Substitution', current_time)
 
-                # 3. Shot (70%)
+                # 3. Shot
                 else:
                     is_3pt = random.random() < 0.35
                     s_type = '3-Point Field Goal' if is_3pt else '2-Point Field Goal'
@@ -206,14 +189,12 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                     is_made = random.choice([True, False])
                     
                     if is_made:
-                        # Assist Rule
                         teammate = random.choice(list(on_court[atk] - {attacker}))
                         log(teammate, 'Assist', current_time)
                         
                         log(attacker, f"{s_type} Made", current_time)
                         scores[atk] += pts
                         
-                        # And-1
                         if random.random() < 0.05:
                             log(defender, 'Personal Foul', current_time)
                             log(attacker, 'Free Throw Made', current_time)
@@ -222,8 +203,7 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                         possession = dfn
                     else:
                         log(attacker, f"{s_type} Attempt", current_time)
-                        # Rebound
-                        if random.random() < 0.1: # Block
+                        if random.random() < 0.1: 
                             log(defender, 'Block', current_time)
                             log(random.choice(list(on_court[dfn])), 'Defensive Rebound', current_time)
                             possession = dfn
@@ -232,9 +212,9 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                             possession = dfn
                         else:
                             log(random.choice(list(on_court[atk])), 'Offensive Rebound', current_time)
-                            possession = atk # Keep
+                            possession = atk 
 
-                # Substitutions (Random)
+                # Substitutions
                 if random.random() < 0.04:
                     side = random.choice(['home', 'away'])
                     if bench[side]:
@@ -246,7 +226,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                         log(po, 'Substitution', current_time)
                         log(pi, 'Substitution', current_time)
 
-        # Overtime if tied
         while scores['home'] == scores['away']:
             scores[random.choice(['home', 'away'])] += 2
         
@@ -255,7 +234,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
         
         results[m_id] = {'winner': winner, 'loser': loser, 'score': scores}
     
-    # Bulk Insert Events
     if event_buffer:
         cursor.executemany("INSERT INTO Event_Creation (match_id, person_id, event_id, game_time) VALUES (%s, %s, %s, %s)", event_buffer)
     
@@ -263,54 +241,24 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
 
 # --- TOURNAMENT MANAGER ---
 
-def run_tournament(conn, cursor):
-    print("--- STARTING TOURNAMENT GENERATION (2 PHASES) ---")
+def run_all_seasons(conn, cursor):
+    print("--- STARTING MULTI-YEAR SIMULATION ---")
     
-    # 0. Setup Static Data
+    # 1. Setup Static Data (Run Once)
     setup_static_data(conn, cursor)
     conn.commit()
-
-    # --- SETUP HIERARCHY ---
-    print("   -> Setting up Phases and Rounds...")
-    cursor.execute("INSERT IGNORE INTO Season (year) VALUES (%s)", (START_YEAR,))
     
-    # Phase 1: Groups (ID 1) | Phase 2: Finals (ID 2)
-    for p_id in [1, 2]:
-        cursor.execute("INSERT INTO Phase (id, phase_id, year) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE year=year", (p_id, p_id, START_YEAR))
-        
-    phase_rounds_map = {}
-    rounds_config = {1: 5, 2: 4} 
-    
-    for p_id, r_count in rounds_config.items():
-        phase_rounds_map[p_id] = []
-        for r_num in range(1, r_count + 1):
-            cursor.execute("INSERT INTO `Round` (round_id, phase_id) VALUES (%s, %s)", (r_num, p_id))
-            phase_rounds_map[p_id].append(cursor.lastrowid)
-            
-    conn.commit()
-    print("   -> Hierarchy Created.")
-    
-    # Fetch Data
+    # 2. Prepare Shared Resources
     cursor.execute("SELECT id FROM Team")
     all_teams = [r[0] for r in cursor.fetchall()]
-    if len(all_teams) < 24:
-        print("Error: Need at least 24 teams.")
-        return
-    teams_24 = all_teams[:24] 
+    teams_24 = all_teams[:24]
     
-    # FETCH ROSTERS WITH SPECIALITY
-    cursor.execute("""
-        SELECT pt.team_id, pt.person_id, p.speciality 
-        FROM Person_Team pt
-        JOIN Person p ON pt.person_id = p.id
-    """)
-    rosters = {} # Structure: {team_id: {'players': [id, id], 'coaches': [id]}}
+    cursor.execute("SELECT pt.team_id, pt.person_id, p.speciality FROM Person_Team pt JOIN Person p ON pt.person_id = p.id")
+    rosters = {} 
     for t, p, spec in cursor.fetchall():
         if t not in rosters: rosters[t] = {'players': [], 'coaches': []}
-        if spec == 'Coach':
-            rosters[t]['coaches'].append(p)
-        else:
-            rosters[t]['players'].append(p)
+        if spec == 'Coach': rosters[t]['coaches'].append(p)
+        else: rosters[t]['players'].append(p)
         
     cursor.execute("SELECT name, id FROM Event")
     e_map = {r[0]: r[1] for r in cursor.fetchall()}
@@ -321,196 +269,175 @@ def run_tournament(conn, cursor):
     cursor.execute("SELECT id FROM Referee")
     referees = [r[0] for r in cursor.fetchall()]
     
-    # ASSIGN HOME STADIUMS TO TEAMS
     team_home_stadiums = {}
     random.shuffle(stadiums)
     for i, tid in enumerate(teams_24):
         team_home_stadiums[tid] = stadiums[i % len(stadiums)]
     
-    match_id_counter = 80000
-    start_date = date(START_YEAR, 10, 1)
+    # 3. Iterate Years
+    match_id_counter = 100000 # Base ID
     
-    # Helper for linking
-    team_stadium_buffer = [] # (team_id, stadium_id, round_id)
-    match_referee_buffer = [] # (match_id, referee_id)
+    for year in YEARS_TO_SIMULATE:
+        # Update counter to be year-prefixed for clarity (e.g., 20210000)
+        match_id_counter = year * 10000 
+        print(f"\n>>> STARTING SEASON {year} <<<")
+        simulate_season(conn, cursor, year, match_id_counter, teams_24, rosters, e_map, team_home_stadiums, referees)
+        conn.commit()
+
+def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, home_stadiums, referees):
+    # --- HIERARCHY FOR YEAR ---
+    cursor.execute("INSERT IGNORE INTO Season (year) VALUES (%s)", (year,))
     
-    def process_match_links(mid, hid, aid, sid, rid):
-        # 1. Link Refs
-        match_refs = random.sample(referees, 3)
-        for ref in match_refs:
-            match_referee_buffer.append((mid, ref))
+    # Create Phases for THIS year (Auto-Inc ID)
+    # Phase 1: Groups, Phase 2: Finals
+    # We need to map logical_phase_id (1,2) -> actual_db_id
+    phase_db_map = {} # {1: db_id, 2: db_id}
+    
+    for logical_p in [1, 2]:
+        cursor.execute("INSERT INTO Phase (phase_id, year) VALUES (%s, %s)", (logical_p, year))
+        phase_db_map[logical_p] = cursor.lastrowid
         
-        # 2. Link Teams to Stadium for this Round
-        # PK is (team, stadium, round). Use IGNORE to avoid duplicates if multiple games in same round (e.g. bracket logic)
+    # Create Rounds linked to these Phases
+    phase_rounds_map = {} # {logical_phase: [round_db_ids]}
+    rounds_config = {1: 5, 2: 4} # 5 rounds in groups, 4 in finals
+    
+    for log_p, count in rounds_config.items():
+        phase_pk = phase_db_map[log_p]
+        phase_rounds_map[log_p] = []
+        for r_num in range(1, count + 1):
+            cursor.execute("INSERT INTO `Round` (round_id, phase_id) VALUES (%s, %s)", (r_num, phase_pk))
+            phase_rounds_map[log_p].append(cursor.lastrowid)
+            
+    match_id_counter = match_id_start
+    start_date = date(year, 10, 1)
+    
+    # Link Helper
+    team_stadium_buffer = []
+    match_referee_buffer = []
+    
+    def link_match(mid, hid, aid, sid, rid):
+        for ref in random.sample(referees, 3):
+            match_referee_buffer.append((mid, ref))
         team_stadium_buffer.append((hid, sid, rid))
         team_stadium_buffer.append((aid, sid, rid))
 
-    # ==========================================
-    # PHASE 1: GROUP STAGE (4 Groups of 6)
-    # ==========================================
-    print("\n[PHASE 1] Groups Phase (4 Groups x 6 Teams)")
-    
-    random.shuffle(teams_24)
-    groups = [teams_24[i:i+6] for i in range(0, 24, 6)] 
-    
-    group_standings = {t: 0 for t in teams_24}
+    # --- PHASE 1: GROUPS ---
+    random.shuffle(teams)
+    groups = [teams[i:i+6] for i in range(0, 24, 6)]
+    group_standings = {t: 0 for t in teams}
     p1_matches = []
-    p1_round_ids = phase_rounds_map[1] 
     
-    for g_idx, group in enumerate(groups):
+    for group in groups:
         schedule = generate_single_rr(group)
         for r_idx, round_matches in enumerate(schedule):
-            current_round_pk = p1_round_ids[r_idx]
-            match_date = start_date + timedelta(weeks=r_idx)
+            curr_round_pk = phase_rounds_map[1][r_idx]
+            mdate = start_date + timedelta(weeks=r_idx)
             
             for h, a in round_matches:
-                mid = match_id_counter
-                match_id_counter += 1
-                
-                # Determine Stadium (Home Team's)
-                stadium = team_home_stadiums[h]
-                
-                p1_matches.append((mid, h, a, match_date))
-                
-                cursor.execute("""
-                    INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) 
-                    VALUES (%s, %s, 'Completed', %s, %s, %s, %s)
-                """, (mid, match_date, current_round_pk, stadium, h, a))
-                
-                process_match_links(mid, h, a, stadium, current_round_pk)
-                
+                mid = match_id_counter; match_id_counter += 1
+                stad = home_stadiums[h]
+                p1_matches.append((mid, h, a, mdate))
+                cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, mdate, curr_round_pk, stad, h, a))
+                link_match(mid, h, a, stad, curr_round_pk)
+    
     conn.commit()
+    res_p1 = simulate_match_batch(cursor, p1_matches, rosters, e_map)
+    for res in res_p1.values(): group_standings[res['winner']] += 1
     
-    # Simulate Phase 1
-    print(f"   -> Simulating {len(p1_matches)} Group Stage matches...")
-    results = simulate_match_batch(cursor, p1_matches, rosters, e_map)
-    conn.commit()
-    
-    for res in results.values():
-        group_standings[res['winner']] += 1
+    qualifiers = []
+    for g in groups:
+        qualifiers.extend(sorted(g, key=lambda t: group_standings[t], reverse=True)[:4])
         
-    knockout_qualifiers = []
-    for group in groups:
-        sorted_g = sorted(group, key=lambda t: group_standings[t], reverse=True)
-        knockout_qualifiers.extend(sorted_g[:4]) 
-        
-    print(f"   -> {len(knockout_qualifiers)} teams qualified for Finals Phase.")
+    print(f"   -> Group Stage Complete. {len(qualifiers)} teams qualified.")
     
-    # ==========================================
-    # PHASE 2: FINALS PHASE (Knockout)
-    # ==========================================
-    print("\n[PHASE 2] Finals Phase")
-    
+    # --- PHASE 2: FINALS ---
     p2_round_ids = phase_rounds_map[2]
-    current_teams = knockout_qualifiers
+    current_teams = qualifiers
     random.shuffle(current_teams)
+    curr_date = start_date + timedelta(weeks=10)
     
-    current_date = start_date + timedelta(weeks=10)
-    
-    # --- Round 1: Round of 16 (8 Games) ---
-    print("   -> Round of 16")
+    # R16
     r16_matches = []
-    r16_pk = p2_round_ids[0]
-    
     for i in range(0, 16, 2):
         h, a = current_teams[i], current_teams[i+1]
         mid = match_id_counter; match_id_counter += 1
-        stadium = team_home_stadiums[h]
-        r16_matches.append((mid, h, a, current_date))
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, current_date, r16_pk, stadium, h, a))
-        process_match_links(mid, h, a, stadium, r16_pk)
-    
+        st = home_stadiums[h]
+        r16_matches.append((mid, h, a, curr_date))
+        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, curr_date, p2_round_ids[0], st, h, a))
+        link_match(mid, h, a, st, p2_round_ids[0])
+        
     conn.commit()
     r16_res = simulate_match_batch(cursor, r16_matches, rosters, e_map)
-    conn.commit()
     qf_teams = [r16_res[m[0]]['winner'] for m in r16_matches]
     
-    # --- Round 2: Quarter-Finals (4 Games) ---
-    print("   -> Quarter-Finals")
+    # QF
     qf_matches = []
-    qf_pk = p2_round_ids[1]
-    current_date += timedelta(days=7)
-    
+    curr_date += timedelta(days=7)
     for i in range(0, 8, 2):
         h, a = qf_teams[i], qf_teams[i+1]
         mid = match_id_counter; match_id_counter += 1
-        stadium = team_home_stadiums[h]
-        qf_matches.append((mid, h, a, current_date))
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, current_date, qf_pk, stadium, h, a))
-        process_match_links(mid, h, a, stadium, qf_pk)
+        st = home_stadiums[h]
+        qf_matches.append((mid, h, a, curr_date))
+        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, curr_date, p2_round_ids[1], st, h, a))
+        link_match(mid, h, a, st, p2_round_ids[1])
         
     conn.commit()
     qf_res = simulate_match_batch(cursor, qf_matches, rosters, e_map)
-    conn.commit()
     sf_teams = [qf_res[m[0]]['winner'] for m in qf_matches]
     
-    # --- Round 3: Semi-Finals (2 Games) ---
-    print("   -> Semi-Finals")
+    # SF
     sf_matches = []
-    sf_pk = p2_round_ids[2]
-    current_date += timedelta(days=7)
-    
-    # SF 1 & 2
+    curr_date += timedelta(days=7)
     mid1 = match_id_counter; match_id_counter += 1
-    st1 = team_home_stadiums[sf_teams[0]] # Higher seed home
-    sf_matches.append((mid1, sf_teams[0], sf_teams[1], current_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid1, current_date, sf_pk, st1, sf_teams[0], sf_teams[1]))
-    process_match_links(mid1, sf_teams[0], sf_teams[1], st1, sf_pk)
-
+    st1 = home_stadiums[sf_teams[0]]
+    sf_matches.append((mid1, sf_teams[0], sf_teams[1], curr_date))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid1, curr_date, p2_round_ids[2], st1, sf_teams[0], sf_teams[1]))
+    link_match(mid1, sf_teams[0], sf_teams[1], st1, p2_round_ids[2])
+    
     mid2 = match_id_counter; match_id_counter += 1
-    st2 = team_home_stadiums[sf_teams[2]]
-    sf_matches.append((mid2, sf_teams[2], sf_teams[3], current_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid2, current_date, sf_pk, st2, sf_teams[2], sf_teams[3]))
-    process_match_links(mid2, sf_teams[2], sf_teams[3], st2, sf_pk)
-        
+    st2 = home_stadiums[sf_teams[2]]
+    sf_matches.append((mid2, sf_teams[2], sf_teams[3], curr_date))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid2, curr_date, p2_round_ids[2], st2, sf_teams[2], sf_teams[3]))
+    link_match(mid2, sf_teams[2], sf_teams[3], st2, p2_round_ids[2])
+    
     conn.commit()
     sf_res = simulate_match_batch(cursor, sf_matches, rosters, e_map)
-    conn.commit()
     
-    final_teams = [] 
-    third_teams = [] 
+    fin_teams = []
+    third_teams = []
     for m in sf_matches:
-        mid = m[0]
-        winner = sf_res[mid]['winner']
-        loser = sf_res[mid]['loser']
-        final_teams.append(winner)
-        third_teams.append(loser)
+        fin_teams.append(sf_res[m[0]]['winner'])
+        third_teams.append(sf_res[m[0]]['loser'])
         
-    # --- Round 4: Finals (2 Games) ---
-    print("   -> Finals & 3rd Place")
+    # FINALS
     fin_matches = []
-    fin_pk = p2_round_ids[3]
-    current_date += timedelta(days=2) 
+    curr_date += timedelta(days=2)
+    # 3rd
+    mid3 = match_id_counter; match_id_counter += 1
+    st3 = home_stadiums[third_teams[0]]
+    fin_matches.append((mid3, third_teams[0], third_teams[1], curr_date))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid3, curr_date, p2_round_ids[3], st3, third_teams[0], third_teams[1]))
+    link_match(mid3, third_teams[0], third_teams[1], st3, p2_round_ids[3])
     
-    # 3rd Place
-    mid_3rd = match_id_counter; match_id_counter += 1
-    st_3rd = team_home_stadiums[third_teams[0]]
-    fin_matches.append((mid_3rd, third_teams[0], third_teams[1], current_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid_3rd, current_date, fin_pk, st_3rd, third_teams[0], third_teams[1]))
-    process_match_links(mid_3rd, third_teams[0], third_teams[1], st_3rd, fin_pk)
-    
-    # Final
-    mid_final = match_id_counter; match_id_counter += 1
-    st_fin = team_home_stadiums[final_teams[0]]
-    fin_matches.append((mid_final, final_teams[0], final_teams[1], current_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid_final, current_date, fin_pk, st_fin, final_teams[0], final_teams[1]))
-    process_match_links(mid_final, final_teams[0], final_teams[1], st_fin, fin_pk)
+    # Champ
+    midF = match_id_counter; match_id_counter += 1
+    stF = home_stadiums[fin_teams[0]]
+    fin_matches.append((midF, fin_teams[0], fin_teams[1], curr_date))
+    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (midF, curr_date, p2_round_ids[3], stF, fin_teams[0], fin_teams[1]))
+    link_match(midF, fin_teams[0], fin_teams[1], stF, p2_round_ids[3])
     
     conn.commit()
     fin_res = simulate_match_batch(cursor, fin_matches, rosters, e_map)
     
-    # INSERT LINKING DATA
+    # COMMIT LINKS
     if match_referee_buffer:
         cursor.executemany("INSERT IGNORE INTO Match_Referee (match_id, referee_id) VALUES (%s, %s)", match_referee_buffer)
     if team_stadium_buffer:
-        # Using IGNORE to handle cases where a team plays multiple games in same Round ID (if bracket structure was different)
         cursor.executemany("INSERT IGNORE INTO Team_stadium (team_id, stadium_id, round_id) VALUES (%s, %s, %s)", team_stadium_buffer)
-    
-    conn.commit()
-    
-    champion = fin_res[mid_final]['winner']
-    cursor.execute("SELECT name FROM Team WHERE id=%s", (champion,))
-    print(f"*** TOURNAMENT CHAMPION: {cursor.fetchone()[0]} ***")
+        
+    champ_id = fin_res[midF]['winner']
+    cursor.execute("SELECT name FROM Team WHERE id=%s", (champ_id,))
+    print(f"*** {year} CHAMPION: {cursor.fetchone()[0]} ***")
 
 def generate_single_rr(team_ids):
     if len(team_ids) % 2 != 0: team_ids.append(None)
@@ -561,6 +488,6 @@ if __name__ == '__main__':
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            run_tournament(conn, cursor)
+            run_all_seasons(conn, cursor)
     finally:
         conn.close()

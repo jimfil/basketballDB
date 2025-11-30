@@ -12,8 +12,7 @@ def display_main_menu():
         answer = input("Awaiting Response: ")
     return answer
 
-def get_player_id():
-    print("")
+
 
 def display_player_stats(page_num, stats):
     """Displays a formatted page of player stats."""
@@ -26,6 +25,7 @@ def display_player_stats(page_num, stats):
         match_id, event_name, game_time = row
         print(f"{match_id:<8}{event_name:<28}{str(game_time)}")
 
+
 def display_match_stats(page_num, stats):
     """Displays a formatted page of match events."""
     print(f"\n\tPage {page_num}\t")
@@ -36,6 +36,8 @@ def display_match_stats(page_num, stats):
     for row in stats:
         shirt_number, last_name, event_name, game_time, team_name = row
         print(f"{team_name:<24}{shirt_number:<15}{last_name:<20}{event_name:<28}{str(game_time)}")
+    
+    return input("\nPress [Enter] for more, or type 'q' to break: ")    
 
 def display_shot_analysis(analysis_data):
     """Displays the analysis of shot percentages."""
@@ -76,12 +78,11 @@ def get_stats_menu():
     print("1: Player Stats")
     print("2: Match Stats")
     print("3: Shot Analysis")
-    print("4: Match Score")
-    print("5: Back")
-    valid_answers = ["1", "2", "3", "4","5"]
+    print("4: Back")
+    valid_answers = ["1", "2", "3", "4"]
     answer = input("Awaiting Response: ")
     while answer not in valid_answers:
-        print("Please Input a Valid Number (1-5)")
+        print("Please Input a Valid Number (1-4)")
         answer = input("Awaiting Response: ")
     return answer
 
@@ -133,8 +134,9 @@ def display_matches_for_team(team_name, matches):
     print("-" * 55)
     for match in matches:
         print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_id']:<15}{match['away_team_id']}")
-    print("-" * 55)
+    
+    return input("\nPress [Enter] for next page, or 'q' to quit: ").strip()
 
-def get_player_selection_input():
+def id_selection_input():
     """Gets user input for player selection, pagination, or quitting."""
-    return input("\nEnter a player ID to select, press [Enter] for next page, or 'q' to quit: ").strip()
+    return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()

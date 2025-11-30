@@ -76,8 +76,12 @@ def get_matches_by_round(round_id):
 def get_match(match_id):
     return query("SELECT * FROM `Match` WHERE match_id = %s;", (match_id,))
 
-def get_matches_by_team(team_id):
-    return query("SELECT * FROM `Match` WHERE home_team_id = %s OR away_team_id = %s ORDER BY match_date DESC;", (team_id, team_id))
+def get_matches_by_team(team_id ,offset):
+    return (query("SELECT name FROM Team WHERE id = %s;", (team_id,)), #onoma omadas
+            query("SELECT * FROM `Match` WHERE home_team_id = %s OR away_team_id = %s ORDER BY match_date DESC LIMIT 10 OFFSET %s;", (team_id, team_id, offset*10))) #agwnes
+
+def get_referees_in_match(match_id):
+    return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = referee.id WHERE match_id = %s;", (match_id,))
 
 
 

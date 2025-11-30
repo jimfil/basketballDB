@@ -41,13 +41,15 @@ def find_matches_for_team():
     all_matches = set()
     while True:
         teamname, matches = get_matches_by_team(user_input,page)
+        
         if not matches:
             break
         all_matches.update(m["id"] for m in matches)
-        user_input2 = int(display_matches_for_team(teamname, matches))
-        if user_input2 in all_matches: return find_matchstats(user_input2)
-        if user_input2.lower() == 'q': return None
+        user_input2 = display_matches_for_team(teamname, matches)
         if user_input2 == '': page += 1; continue
+        if user_input2.lower() == 'q': return None
+        if int(user_input2) in all_matches: return find_matchstats(user_input2)
+        
 
 def find_matchstats(match_id):
     page = 0

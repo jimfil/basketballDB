@@ -37,7 +37,7 @@ def display_match_stats(page_num, stats):
         shirt_number, last_name, event_name, game_time, team_name = row
         print(f"{team_name:<24}{shirt_number:<15}{last_name:<20}{event_name:<28}{str(game_time)}")
     
-    return input("\nPress [Enter] for more, or type 'q' to break: ")    
+    return input("\nPress [Enter] for more, or type 'q' to return to Stats menu: ")    
 
 def display_shot_analysis(analysis_data):
     """Displays the analysis of shot percentages."""
@@ -125,7 +125,7 @@ def display_players_paginated(players):
 
 def display_matches_for_team(team_name, matches):
     """Displays a list of matches for a specific team."""
-    print(f"\n--- Matches for {team_name} ---")
+    print(f"\n--- Matches for {team_name[0]["name"]} ---")
     if not matches:
         print("No matches found for this team.")
         return

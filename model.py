@@ -35,15 +35,16 @@ def query(sql, params=()):
             return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
     
 
-def get_players(offset = 0): # dineis player id kai posa 10 thes na skipareis
+def get_players(team,offset = 0): # dineis player id kai posa 10 thes na skipareis
     with get_connection() as con:
             with con.cursor() as cur:
                 sql ='''SELECT p.speciality,p.id, p.first_name, p.last_name, pt.shirt_num,pt.team_id
                             FROM person as p
                             JOIN person_team as pt
                             ON p.id = pt.person_id
+                            AND pt.team_id = %s
                             LIMIT 10 OFFSET %s'''
-                cur.execute(sql,(offset*10))
+                cur.execute(sql,(team,offset*10))
                 tuples = cur.fetchall()
                 return tuples
             
@@ -62,13 +63,12 @@ def get_matches():
     return query("SELECT * FROM `match`;")
 
 def get_seasons():
-    return query("SELECT * FROM Season;")
-
-def get_phases_by_season(season_year):
-    return query("SELECT * FROM Phase WHERE year = %s;", (season_year,))
-
-def get_rounds_by_phase(phase_id):
-    return query("SELECT * FROM Round WHERE phase_id = %s;", (phase_id,))
+    with get_connection() as con:
+            with con.cursor() as cur:
+                sql ='''SELECT * FROM season'''
+                cur.execute(sql,)
+                tuples = set(s[0] for s in cur.fetchall())
+                return tuples
 
 def get_matches_by_round(round_id):
     return query("SELECT * FROM `Match` WHERE matchday_id = %s;", (round_id,))
@@ -263,3 +263,20 @@ def get_scores(match_id):
                 team1_id: int(results.get(team1_id, 0)),
                 team2_id: int(results.get(team2_id, 0))
             }
+
+def get_phases_for_year(year):
+    return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
+
+def get_rounds_for_phase(phase_id):
+    matches_sql = """
+        SELECT m.id, m.home_team_id, m.away_team_id 
+        FROM `Match` m
+        JOIN `Round` r ON m.round_id = r.id
+        WHERE r.phase_id = %s AND m.status = 'Completed'
+    """
+    matches = query(matches_sql, (phase_id,))
+    return matches
+
+def get_team_name(team_id):
+    return query("SELECT name FROM Team WHERE id = %s", (team_id,))
+

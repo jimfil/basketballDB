@@ -1,21 +1,22 @@
-from model import get_match_stats, get_matches_by_team,get_player_stats, get_player_shot_stats, get_scores, get_teams, get_players
-from view_cmd import display_main_menu, display_player_stats, display_match_stats, display_shot_analysis, display_match_score, get_stats_menu, display_teams, display_team_menu, shot_percentage_menu, display_players_paginated, display_matches_for_team, id_selection_input
+from model import *
+from view_cmd import *
 
 
 
 def find_playerstats(player_id):
     if not player_id:
         return # User quit selection
-    for i in range(1000):
-        results = get_player_stats(player_id, i)    #epistrefei Game -> Event Name -> Time
-        display_player_stats(i + 1, results)
+    page = 0
+    while True:
+        results = get_player_stats(player_id, page)
         if not results:
-            print("No more stats found for this Player. Exiting...")
+            print_no_more_found("stats")
             break
-        user_input = input("\nPress [Enter] to get next 10, or type 'q' to break: ")
+        user_input =display_player_stats(page + 1, results)
         if user_input.lower() == 'q':
-            print("Exiting...")
             break
+        invalid_input()
+
 
 def view_teams():
     """Controller to view all teams or a single team."""
@@ -28,16 +29,18 @@ def view_teams():
         all_teams_id.update(t[0] for t in teams)
         user_input = display_teams(teams)
         if user_input == '': offset += 1; continue
-        if user_input.lower() == 'q': return user_input
+        if user_input.lower() == 'q': return None
         if int(user_input) in all_teams_id: return user_input
+        invalid_input()
+
          
 def find_matches_for_team():
-    print("Please select a team from the list below.")
+    print_select_from_list("team")
     user_input = view_teams()
-    if user_input == 'q':
+    if not user_input:
         return 
     page = 0
-    print("Now select a match.")
+    print_select_from_list("match")
     all_matches = set()
     while True:
         teamname, matches = get_matches_by_team(user_input,page)
@@ -49,6 +52,8 @@ def find_matches_for_team():
         if user_input2 == '': page += 1; continue
         if user_input2.lower() == 'q': return None
         if int(user_input2) in all_matches: return find_matchstats(user_input2)
+        invalid_input()
+
         
 
 def find_matchstats(match_id):
@@ -60,17 +65,21 @@ def find_matchstats(match_id):
         user_input = display_match_stats(page + 1, results)
         if user_input.lower() == 'q': return None
         if user_input == '': page += 1; continue
-
-
+        invalid_input()
 
 
 def select_player():
+    print_select_from_list("team")
+    team_id = view_teams()
+    if not team_id:
+        return 
     all_player_ids = set()
     page = 0
+    print_select_from_list("players")
     while True:
-        players_to_show = get_players(page)
+        players_to_show = get_players(team_id,page)
         if not players_to_show:
-            print("No more players found.")
+            print_no_more_found("players")
             break
         all_player_ids.update(p[1] for p in players_to_show)
         display_players_paginated(players_to_show)
@@ -79,34 +88,22 @@ def select_player():
         if user_input.lower() == 'q': return None
         if user_input == '': page += 1; continue
         if user_input.isdigit() and int(user_input) in all_player_ids: return int(user_input)
-        print("Invalid input. Please try again.")
-
+        invalid_input()
+    
 
 def create_team():
     pass
 
 
 def find_player_shot_percentage(player_id, shot_type, match_id=None):
-    """
-    Generic function to calculate and display shot percentages for a player.
-    :param player_id: The ID of the player.
-    :param shot_type: The base name of the shot (e.g., '2-Point Field Goal', 'Free Throw').
-    :param match_id: Optional ID of a match to filter stats for.
-    """
-    # 1. Get data from the Model
     stats = get_player_shot_stats(player_id, shot_type, match_id)
-
-    # 2. Perform business logic/calculations
     made = stats.get(f'{shot_type} Made', 0)
     missed = stats.get(f'{shot_type} Attempt', 0)
     total_attempts = made + missed
 
-    if total_attempts == 0:
-        percentage = 0
-    else:
-        percentage = (made / total_attempts) * 100
+    if total_attempts == 0: percentage = 0
+    else: percentage = (made / total_attempts) * 100
 
-    # 3. Prepare data for the View
     scope = f"in match {match_id}" if match_id else "for their career"
     analysis_data = {
         'title': f'{shot_type} Analysis',
@@ -117,8 +114,6 @@ def find_player_shot_percentage(player_id, shot_type, match_id=None):
         'total': total_attempts,
         'percentage': percentage
     }
-
-    # 4. Pass data to the View for display
     display_shot_analysis(analysis_data)
 
 def obtain_match_scores(match_id):
@@ -128,6 +123,60 @@ def obtain_match_scores(match_id):
     else:
         print(f"Match with ID {match_id} not found.")
 
+def shot_percentage_control():
+    player_id = select_player()
+    if not player_id:
+        return 
+
+    choice = display_shot_percentage_menu()
+    shot_map = {
+        "1": "Free Throw",
+        "2": "2-Point Field Goal",
+        "3": "3-Point Field Goal"
+    }
+    if choice in shot_map:
+        find_player_shot_percentage(player_id, shot_map[choice])
+
+def calculate_standings(phase_id):
+    # 1. Get all matches in this phase
+    # Note: We join with Round to filter by phase_id
+    
+    matches = get_rounds_for_phase(phase_id)    # Structure: {team_id: {'wins': 0, 'losses': 0, 'points_for': 0, 'points_against': 0}}
+    standings = {}
+    
+    # Helper to init team in dict
+    def init_team(tid):
+        if tid not in standings:
+            standings[tid] = {'wins': 0, 'losses': 0}
+
+    for m in matches:
+        mid, hid, aid = m['id'], m['home_team_id'], m['away_team_id']
+        init_team(hid)
+        init_team(aid)
+        
+        # Reuse your existing get_scores function!
+        scores = get_scores(mid) 
+        h_score = scores.get(hid, 0)
+        a_score = scores.get(aid, 0)
+        
+        # Update Wins/Losses
+        if h_score > a_score:
+            standings[hid]['wins'] += 1
+            standings[aid]['losses'] += 1
+        else:
+            standings[aid]['wins'] += 1
+            standings[hid]['losses'] += 1
+            
+    # Fetch Team Names for display
+    final_standings = []
+    for tid, stats in standings.items():
+        t_name = get_team_name(tid)[0]['name']
+        stats['name'] = t_name
+        stats['id'] = tid
+        final_standings.append(stats)
+        
+    # Sort by Wins descending
+    return sorted(final_standings, key=lambda x: x['wins'], reverse=True)
 
 def team_menu():
     while True:
@@ -137,29 +186,43 @@ def team_menu():
         elif index == 2:
             create_team()
         elif index == 3:
-            return  # Go back
+            return  
 
-def shot_percentage_control():
-    player_id = select_player()
-    if not player_id:
-        return # User quit selection
+def get_year():
+    giwrgos = get_seasons()
+    display_years(giwrgos)
+    while True:
+        year_id = get_year_input() 
+        if year_id.lower() == 'q': return None
+        if int(year_id) in giwrgos: break
+        invalid_input()
+    return year_id
+    
+def league_menu():
+    year_id = get_year()
+    while True:
+        index = display_league_menu()
+        if index == "1":
+            phases = get_phases_for_year(year_id)
+            group_phase = next((p for p in phases if p['phase_id'] == 1), None)
+            print("\nCalculating Standings... (this may take a second)")
+            standings = calculate_standings(group_phase['id'])
+            display_standings(standings)
 
-    choice = shot_percentage_menu()
-    shot_map = {
-        "1": "Free Throw",
-        "2": "2-Point Field Goal",
-        "3": "3-Point Field Goal"
-    }
-    if choice in shot_map:
-        find_player_shot_percentage(player_id, shot_map[choice])
-    # "4" is back, so we do nothing.
+        elif index == "2":
+            pass
+        elif index == "3": 
+            year_id = get_year()
+            continue
+        elif index == "4": return
+        else:
+            invalid_input()
 
-
-
+        
 
 def stats_menu():
     while True:
-        index = int(get_stats_menu())
+        index = int(display_stats_menu())
         if index == 1:
             find_playerstats(select_player())
         elif index == 2:                # dialegw omada -> blepw agwnes (Omada 1 - Omada 2) (73 - 68 )
@@ -171,20 +234,18 @@ def stats_menu():
 
 def main_menu(index):
     if index==1: team_menu()
-    elif index==2: pass
+    elif index==2: league_menu()
     elif index==3: stats_menu()
     elif index==4: return True
     return False
 
 
 
+
+
 if __name__ == "__main__":
 
-    print("\n\t\t--->>Welcome to the BasketBall League<<---")
+    print("\n--->>Welcome to the BasketBall League<<---")
     exit = False
     while not exit:
         exit = main_menu(int(display_main_menu()))
-
-    # Example of how to view a single team:
-    # view_teams(team_id=1)
-    

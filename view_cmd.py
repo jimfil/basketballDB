@@ -53,7 +53,7 @@ def display_shot_percentage_menu():
 def display_league_menu():
     print("--- League Menu ---")
     print("1: View Standings (Group Stage)")
-    print("2: View Match Schedule by Phase")
+    print("2: View Rounds in the Knockout Stage")
     print("3: Change Season")
     print("4: Back")
     valid_answers = ["1", "2", "3","4"]

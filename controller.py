@@ -210,7 +210,11 @@ def league_menu():
             display_standings(standings)
 
         elif index == "2":
-            pass
+            phases = get_phases_for_year(year_id)
+            group_phase = next((p for p in phases if p['phase_id'] == 2), None)
+            print("\nCalculating Standings... (this may take a second)")
+            standings = calculate_standings(group_phase['id'])
+            display_standings(standings)
         elif index == "3": 
             year_id = get_year()
             continue

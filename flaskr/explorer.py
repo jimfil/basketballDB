@@ -11,51 +11,15 @@ from basketballDB.model import (
     get_matches_by_phase,
     get_scores,
     get_team_name,
+    calculate_standings_for_phase,
 )
 
 bp = Blueprint("explorer", __name__, url_prefix="/explorer")
 
 
 def calculate_standings(phase_id):
-    # 1. Get all matches in this phase
-    # Note: We join with Round to filter by phase_id
-
-    matches = get_matches_by_phase(phase_id)  # Structure: {team_id: {'wins': 0, 'losses': 0, 'points_for': 0, 'points_against': 0}}
-    standings = {}
-
-    # Helper to init team in dict
-    def init_team(tid):
-        if tid not in standings:
-            standings[tid] = {"wins": 0, "losses": 0}
-
-    for m in matches:
-        mid, hid, aid = m["match_id"], m["home_team_id"], m["away_team_id"]
-        init_team(hid)
-        init_team(aid)
-
-        # Reuse your existing get_scores function!
-        scores = get_scores(mid)
-        h_score = scores.get(hid, 0)
-        a_score = scores.get(aid, 0)
-
-        # Update Wins/Losses
-        if h_score > a_score:
-            standings[hid]["wins"] += 1
-            standings[aid]["losses"] += 1
-        else:
-            standings[aid]["wins"] += 1
-            standings[hid]["losses"] += 1
-
-    # Fetch Team Names for display
-    final_standings = []
-    for tid, stats in standings.items():
-        t_name = get_team_name(tid)[0]["name"]
-        stats["name"] = t_name
-        stats["id"] = tid
-        final_standings.append(stats)
-
-    # Sort by Wins descending
-    return sorted(final_standings, key=lambda x: x["wins"], reverse=True)
+    """Calculates standings for a given phase_id using an optimized query."""
+    return calculate_standings_for_phase(phase_id)
 
 
 @bp.route("/")

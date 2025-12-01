@@ -275,3 +275,48 @@ def get_rounds_by_phase(phase_id):
 
 def get_team_name(team_id):
     return query("SELECT name FROM Team WHERE id = %s", (team_id,))
+
+def calculate_standings_for_phase(phase_id):
+    sql = """
+        WITH MatchScores AS (
+            SELECT
+                m.id AS match_id,
+                m.home_team_id,
+                m.away_team_id,
+                SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS home_score,
+                SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS away_score
+            FROM `Match` m
+            JOIN `Round` r ON m.round_id = r.id
+            LEFT JOIN Event_Creation ec ON m.id = ec.match_id
+            LEFT JOIN Event e ON ec.event_id = e.id
+            LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id
+            WHERE r.phase_id = %s AND m.status = 'Completed'
+            GROUP BY m.id, m.home_team_id, m.away_team_id
+        ),
+        Winners AS (
+            SELECT
+                CASE WHEN home_score > away_score THEN home_team_id ELSE away_team_id END as winner_id,
+                CASE WHEN home_score < away_score THEN home_team_id ELSE away_team_id END as loser_id
+            FROM MatchScores
+        )
+        SELECT
+            t.id,
+            t.name,
+            COALESCE(w.wins, 0) AS wins,
+            COALESCE(l.losses, 0) AS losses
+        FROM Team t
+        LEFT JOIN (SELECT winner_id, COUNT(*) as wins FROM Winners GROUP BY winner_id) w ON t.id = w.winner_id
+        LEFT JOIN (SELECT loser_id, COUNT(*) as losses FROM Winners GROUP BY loser_id) l ON t.id = l.loser_id
+        WHERE COALESCE(w.wins, 0) > 0 OR COALESCE(l.losses, 0) > 0
+        ORDER BY wins DESC;
+    """
+    standings = query(sql, (phase_id,))
+    # Convert Decimal to int for consistency
+    for team_stats in standings:
+        team_stats['wins'] = int(team_stats['wins'])
+        team_stats['losses'] = int(team_stats['losses'])
+    return standings

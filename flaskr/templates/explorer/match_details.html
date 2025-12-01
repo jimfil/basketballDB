@@ -31,9 +31,9 @@
           <tbody>
             {% for player in players %}
               <tr>
-                <td>{{ player.person_id }}</td>
+                <td>{{ player.id }}</td>
                 <td>{{ player.first_name }}</td>
-                <td><a href="{{ url_for('basketball.player_details', id=player.person_id) }}">{{ player.last_name }}</a></td>
+                <td><a href="{{ url_for('basketball.player_details', id=player.id) }}">{{ player.last_name }}</a></td>
                 <td>{{ player.speciality }}</td>
               </tr>
             {% endfor %}

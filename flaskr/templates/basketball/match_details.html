@@ -5,6 +5,15 @@
 {% endblock %}
 
 {% block content %}
+  {% if scores %}
+    <h2>Scores</h2>
+    <ul>
+      {% for team_id, score in scores.items() %}
+        <li>Team {{ team_id }}: {{ score }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
   <table>
     <thead>
       <tr>

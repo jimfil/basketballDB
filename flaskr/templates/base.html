@@ -4,10 +4,9 @@
 <nav>
   <h1><a href="{{ url_for('index') }}">Flaskr</a></h1>
   <ul>
-    <li><a href="{{ url_for('basketball.index') }}">Basketball</a>
-    <li><a href="{{ url_for('basketball.events') }}">Events</a>
-    <li><a href="{{ url_for('basketball.matches') }}">Matches</a>
-    <li><a href="{{ url_for('explorer.index') }}">Explorer</a>
+    <li><a href="{{ url_for('basketball.index') }}">Basketball</a></li>
+    <li><a href="{{ url_for('explorer.index') }}">Explorer</a></li>
+    <li><a href="{{ url_for('explorer.standings') }}">Standings</a></li>
     {% if g.user %}
       <li><span>{{ g.user['username'] }}</span>
       <li><a href="{{ url_for('auth.logout') }}">Log Out</a>

@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Matches for {{ team_name }}{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <ul>
+    {% for match in matches %}
+      <li>
+        <a href="{{ url_for('basketball.match_details', id=match.id) }}">
+          Match #{{ match.id }} on {{ match.match_date }}
+        </a>
+      </li>
+    {% else %}
+      <li>No matches found for this team.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

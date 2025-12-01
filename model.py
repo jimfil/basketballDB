@@ -63,18 +63,13 @@ def get_matches():
     return query("SELECT * FROM `match`;")
 
 def get_seasons():
-    with get_connection() as con:
-            with con.cursor() as cur:
-                sql ='''SELECT * FROM season'''
-                cur.execute(sql,)
-                tuples = set(s[0] for s in cur.fetchall())
-                return tuples
+    return query("SELECT * FROM season")
 
 def get_matches_by_round(round_id):
-    return query("SELECT * FROM `Match` WHERE matchday_id = %s;", (round_id,))
+    return query("SELECT id as match_id, home_team_id, away_team_id, match_date, status FROM `Match` WHERE round_id = %s;", (round_id,))
 
 def get_match(match_id):
-    return query("SELECT * FROM `Match` WHERE match_id = %s;", (match_id,))
+    return query("SELECT * FROM `Match` WHERE id = %s;", (match_id,))
 
 def get_matches_by_team(team_id ,offset):
     return (query("SELECT name FROM Team WHERE id = %s;", (team_id,)), #onoma omadas
@@ -96,13 +91,13 @@ def get_players_in_match(match_id):
     
     home_players = query("""
         SELECT p.* FROM Person p
-        JOIN Person_Team pt ON p.person_id = pt.person_id
+        JOIN Person_Team pt ON p.id = pt.person_id
         WHERE pt.team_id = %s;
     """, (home_team_id,))
     
     away_players = query("""
         SELECT p.* FROM Person p
-        JOIN Person_Team pt ON p.person_id = pt.person_id
+        JOIN Person_Team pt ON p.id = pt.person_id
         WHERE pt.team_id = %s;
     """, (away_team_id,))
     
@@ -229,47 +224,45 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
             return dict(cur.fetchall())
         
 def get_scores(match_id):
-    with get_connection() as con:
-        with con.cursor() as cur:
-            cur.execute("SELECT home_team_id, away_team_id FROM `match` WHERE id = %s", (match_id,))
-            teams = cur.fetchone()
-            if not teams:
-                return None # Match not found
-            team1_id, team2_id = teams
-            sql_score = """
-                SELECT
-                    pt.team_id,
-                    SUM(
-                        CASE e.name
-                            WHEN '3-Point Field Goal Made' THEN 3
-                            WHEN '2-Point Field Goal Made' THEN 2
-                            WHEN 'Free Throw Made' THEN 1
-                            ELSE 0
-                        END
-                    ) AS total_score
-                FROM event_creation AS ec
-                JOIN event AS e 
-                    ON ec.event_id = e.id
-                JOIN person_team AS pt 
-                    ON ec.person_id = pt.person_id
-                WHERE ec.match_id = %s AND pt.team_id IN (%s, %s)
-                GROUP BY pt.team_id;
-            """
-            cur.execute(sql_score, (match_id, team1_id, team2_id))
-            results = dict(cur.fetchall())
-            
-            # Return a dictionary with team IDs and their scores, defaulting to 0.
-            return {
-                team1_id: int(results.get(team1_id, 0)),
-                team2_id: int(results.get(team2_id, 0))
-            }
+    sql = """
+        SELECT 
+            m.home_team_id,
+            m.away_team_id,
+            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name = '3-Point Field Goal Made' THEN 3 ELSE 0 END) +
+            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name = '2-Point Field Goal Made' THEN 2 ELSE 0 END) +
+            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name = 'Free Throw Made' THEN 1 ELSE 0 END) as home_score,
+            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name = '3-Point Field Goal Made' THEN 3 ELSE 0 END) +
+            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name = '2-Point Field Goal Made' THEN 2 ELSE 0 END) +
+            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name = 'Free Throw Made' THEN 1 ELSE 0 END) as away_score
+        FROM `Match` m
+        LEFT JOIN Event_Creation ec ON m.id = ec.match_id
+        LEFT JOIN Event e ON ec.event_id = e.id
+        LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (m.home_team_id, m.away_team_id)
+        WHERE m.id = %s
+        GROUP BY m.home_team_id, m.away_team_id;
+    """
+    result = query(sql, (match_id,))
+    
+    if not result:
+        # If the match doesn't exist, we can check for it to return an empty dict or None
+        match_exists = query("SELECT id FROM `Match` WHERE id = %s", (match_id,))
+        return {} if match_exists else None
 
-def get_phases_for_year(year):
+    score_data = result[0]
+    home_team_id = score_data['home_team_id']
+    away_team_id = score_data['away_team_id']
+    
+    return {
+        home_team_id: int(score_data.get('home_score') or 0),
+        away_team_id: int(score_data.get('away_score') or 0)
+    }
+
+def get_phases_by_season(year):
     return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
 
-def get_rounds_for_phase(phase_id):
+def get_matches_by_phase(phase_id):
     matches_sql = """
-        SELECT m.id, m.home_team_id, m.away_team_id 
+        SELECT m.id as match_id, m.home_team_id, m.away_team_id, m.match_date, m.status 
         FROM `Match` m
         JOIN `Round` r ON m.round_id = r.id
         WHERE r.phase_id = %s AND m.status = 'Completed'
@@ -277,6 +270,8 @@ def get_rounds_for_phase(phase_id):
     matches = query(matches_sql, (phase_id,))
     return matches
 
+def get_rounds_by_phase(phase_id):
+    return query("SELECT * FROM Round WHERE phase_id = %s ORDER BY id", (phase_id,))
+
 def get_team_name(team_id):
     return query("SELECT name FROM Team WHERE id = %s", (team_id,))
-

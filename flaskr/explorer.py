@@ -8,9 +8,54 @@ from basketballDB.model import (
     get_match,
     get_players_in_match,
     get_match_stats,
+    get_matches_by_phase,
+    get_scores,
+    get_team_name,
 )
 
 bp = Blueprint("explorer", __name__, url_prefix="/explorer")
+
+
+def calculate_standings(phase_id):
+    # 1. Get all matches in this phase
+    # Note: We join with Round to filter by phase_id
+
+    matches = get_matches_by_phase(phase_id)  # Structure: {team_id: {'wins': 0, 'losses': 0, 'points_for': 0, 'points_against': 0}}
+    standings = {}
+
+    # Helper to init team in dict
+    def init_team(tid):
+        if tid not in standings:
+            standings[tid] = {"wins": 0, "losses": 0}
+
+    for m in matches:
+        mid, hid, aid = m["match_id"], m["home_team_id"], m["away_team_id"]
+        init_team(hid)
+        init_team(aid)
+
+        # Reuse your existing get_scores function!
+        scores = get_scores(mid)
+        h_score = scores.get(hid, 0)
+        a_score = scores.get(aid, 0)
+
+        # Update Wins/Losses
+        if h_score > a_score:
+            standings[hid]["wins"] += 1
+            standings[aid]["losses"] += 1
+        else:
+            standings[aid]["wins"] += 1
+            standings[hid]["losses"] += 1
+
+    # Fetch Team Names for display
+    final_standings = []
+    for tid, stats in standings.items():
+        t_name = get_team_name(tid)[0]["name"]
+        stats["name"] = t_name
+        stats["id"] = tid
+        final_standings.append(stats)
+
+    # Sort by Wins descending
+    return sorted(final_standings, key=lambda x: x["wins"], reverse=True)
 
 
 @bp.route("/")
@@ -57,3 +102,18 @@ def match_details(match_id):
         players=players,
         events=events,
     )
+
+
+@bp.route("/standings")
+@login_required
+def standings():
+    season_year = request.args.get("season_year")
+    phase_id = request.args.get("phase_id")
+    standings = None
+    phases = None
+    seasons = get_seasons()
+    if season_year:
+        phases = get_phases_by_season(season_year)
+    if phase_id:
+        standings = calculate_standings(phase_id)
+    return render_template("explorer/standings.html", standings=standings, phases=phases, seasons=seasons, selected_phase=phase_id, selected_season=season_year)

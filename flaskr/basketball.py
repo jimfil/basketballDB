@@ -1,6 +1,17 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request, redirect, url_for
 from .auth import login_required
-from basketballDB.model import get_teams, get_players, get_all_events, get_player_stats, get_matches, get_match_stats
+from basketballDB.model import (
+    get_teams,
+    get_players,
+    get_all_events,
+    get_player_stats,
+    get_matches,
+    get_match_stats,
+    create_team,
+    get_matches_by_team,
+    get_scores,
+    get_player_shot_stats,
+)
 
 bp = Blueprint("basketball", __name__, url_prefix="/basketball")
 
@@ -8,10 +19,9 @@ bp = Blueprint("basketball", __name__, url_prefix="/basketball")
 @bp.route("/")
 @login_required
 def index():
-    """Show all the teams and players."""
+    """Show all the teams."""
     teams = get_teams()
-    players = get_players()
-    return render_template("basketball/index.html", teams=teams, players=players)
+    return render_template("basketball/index.html", teams=teams)
 
 
 @bp.route("/events")
@@ -42,6 +52,64 @@ def player_details(id):
 @bp.route("/match/<int:id>")
 @login_required
 def match_details(id):
-    """Show a match's stats."""
+    """Show a match's stats and score."""
     stats = get_match_stats(id)
-    return render_template("basketball/match_details.html", stats=stats)
+    scores = get_scores(id)
+    return render_template("basketball/match_details.html", stats=stats, scores=scores)
+
+
+@bp.route("/team/create", methods=("GET", "POST"))
+@login_required
+def create_team_route():
+    """Create a new team."""
+    if request.method == "POST":
+        team_name = request.form["team_name"]
+        if team_name:
+            create_team(team_name)
+            return redirect(url_for("basketball.index"))
+    return render_template("basketball/create_team.html")
+
+
+@bp.route("/team/<int:team_id>/matches")
+@login_required
+def team_matches(team_id):
+    """Show all the matches for a team."""
+    team_name, matches = get_matches_by_team(team_id, 0)
+    return render_template(
+        "basketball/team_matches.html", team_name=team_name[0]["name"], matches=matches
+    )
+
+@bp.route("/team/<int:team_id>/players")
+@login_required
+def team_players(team_id):
+    """Show all the players for a team."""
+    players = get_players(team_id)
+    return render_template("basketball/team_players.html", players=players, team_id=team_id)
+
+
+@bp.route("/player/<int:player_id>/shot-percentage")
+@login_required
+def player_shot_percentage(player_id):
+    """Show a player's shot percentage."""
+    shot_types = ["Free Throw", "2-Point Field Goal", "3-Point Field Goal"]
+    shot_stats = {}
+    for shot_type in shot_types:
+        stats = get_player_shot_stats(player_id, shot_type)
+        made = stats.get(f"{shot_type} Made", 0)
+        missed = stats.get(f"{shot_type} Attempt", 0)
+        total_attempts = made + missed
+        if total_attempts == 0:
+            percentage = 0
+        else:
+            percentage = (made / total_attempts) * 100
+        shot_stats[shot_type] = {
+            "made": made,
+            "missed": missed,
+            "total": total_attempts,
+            "percentage": percentage,
+        }
+    return render_template(
+        "basketball/player_shot_percentage.html",
+        player_id=player_id,
+        shot_stats=shot_stats,
+    )

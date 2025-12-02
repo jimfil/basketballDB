@@ -13,6 +13,7 @@ def find_playerstats(player_id):
             print_no_more_found("stats")
             break
         user_input =display_player_stats(page + 1, results)
+        if user_input.lower() == '': page += 1; continue
         if user_input.lower() == 'q':
             break
         invalid_input()

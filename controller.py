@@ -153,11 +153,12 @@ def team_menu():
 
 def get_year():
     giwrgos = get_seasons()
-    display_years(giwrgos)
+    lista = [item["year"] for item in giwrgos]
+    display_years(lista)
     while True:
         year_id = get_year_input() 
         if year_id.lower() == 'q': return None
-        if int(year_id) in giwrgos: break
+        if int(year_id) in lista: break
         invalid_input()
     return year_id
     
@@ -166,14 +167,14 @@ def league_menu():
     while True:
         index = display_league_menu()
         if index == "1":
-            phases = get_phases_for_year(year_id)
+            phases = get_phases_by_season(year_id)
             group_phase = next((p for p in phases if p['phase_id'] == 1), None)
             print("\nCalculating Standings... (this may take a second)")
             standings = calculate_standings(group_phase['id'])
             display_standings(standings)
 
         elif index == "2":
-            phases = get_phases_for_year(year_id)
+            phases = get_phases_by_season(year_id)
             group_phase = next((p for p in phases if p['phase_id'] == 2), None)
             print("\nCalculating Standings... (this may take a second)")
             standings = calculate_standings(group_phase['id'])

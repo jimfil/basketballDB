@@ -63,7 +63,7 @@ def get_matches():
     return query("SELECT * FROM `match`;")
 
 def get_seasons():
-    return query("SELECT * FROM season")
+    return query("SELECT * FROM season order by year desc;")
 
 def get_matches_by_round(round_id):
     return query("SELECT id as match_id, home_team_id, away_team_id, match_date, status FROM `Match` WHERE round_id = %s;", (round_id,))

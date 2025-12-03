@@ -145,6 +145,36 @@ def get_player_info_input():
 
 def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
+def get_new_team_name_input(): return input("Enter the new team name: ").strip()
+def get_updated_player_info_input(current_details):
+    """
+    Prompts user for updated player details, showing current values.
+    Pressing Enter keeps the current value.
+    Returns a dictionary of changed values.
+    """
+    print("\nEnter new player details. Press [Enter] to keep the current value.")
+    
+    changes = {}
+    
+    # First Name
+    new_first_name = input(f"First Name [{current_details['first_name']}]: ").strip()
+    if new_first_name and new_first_name != current_details['first_name']:
+        changes['first_name'] = new_first_name
+        
+    # Last Name
+    new_last_name = input(f"Last Name [{current_details['last_name']}]: ").strip()
+    if new_last_name and new_last_name != current_details['last_name']:
+        changes['last_name'] = new_last_name
+        
+    # Shirt Number
+    current_shirt = current_details.get('shirt_num', 'N/A')
+    new_shirt_num_str = input(f"Shirt Number [{current_shirt}]: ").strip()
+    if new_shirt_num_str and new_shirt_num_str.isdigit():
+        new_shirt_num = int(new_shirt_num_str)
+        if new_shirt_num != current_shirt:
+            changes['shirt_num'] = new_shirt_num
+            
+    return changes
 
         
 def print_player_list_header(team_id): print(f"\n--- Players for Team ID: {team_id} ---")
@@ -160,5 +190,12 @@ def print_phases_creation_success(): print("Group Stage and Knockout phases crea
 def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
 def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
 def print_player_creation_success(first_name, last_name): print(f"Player '{first_name} {last_name}' created successfully.")
+def print_update_success(item): print(f"Successfully updated {item}.")
+def print_update_failed(item): print(f"Failed to update {item}. The value may be a duplicate or a database error occurred.")
+def print_delete_success(item_type, item_id): print(f"Successfully deleted {item_type} with ID {item_id}.")
+def print_delete_failed(item_type, item_id, note=None):
+    message = f"Failed to delete {item_type} with ID {item_id}."
+    if note: message += f" {note}"
+    print(message)
 def print_operation_cancelled(): print("Operation cancelled.")
 def invalid_input():print("Invalid input. Please try again.")

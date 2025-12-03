@@ -46,19 +46,16 @@ def find_playerstats(player_id):
 
 def view_teams():
     """Controller to view all teams or a single team."""
-    print_select_from_list("team")
-    team_id = handle_pagination(lambda page: get_teams(page), display_teams)
+    team_id = select_team_for_action()
     if team_id:
         print_player_list_header(team_id)
         # This pagination is display-only, so we don't need to capture a selection.
         # The inner handle_pagination will loop until the user quits.
         handle_pagination(lambda page: get_players(team_id, offset=page), display_players_paginated)
-        return None # Explicitly return None as we've completed the action.
-    return None # Return None if user quit team selection
 
 
 def find_matches_for_team():
-    team_id = view_teams()
+    team_id = select_team_for_action()
     if not team_id:
         return 
 
@@ -81,7 +78,7 @@ def find_matchstats(match_id):
     handle_pagination(lambda page: get_match_stats(match_id, offset=page), display_match_stats)
 
 def select_player():
-    team_id = view_teams()
+    team_id = select_team_for_action()
     if not team_id:
         return None
 
@@ -125,8 +122,7 @@ def cmd_create_season_with_phases():
 
 def cmd_create_player_for_team():
     """Controller function to create a player and assign them to a team."""
-    print_select_team_for_player()
-    team_id = view_teams()
+    team_id = select_team_for_action()
     if not team_id:
         print_operation_cancelled()
         return
@@ -141,6 +137,79 @@ def cmd_create_player_for_team():
         print_player_creation_success(player_info['first_name'], player_info['last_name'])
     else:
         print_creation_failed("player", f"{player_info['first_name']} {player_info['last_name']}")
+
+def cmd_update_player_info():
+    """Controller to update a player's information."""
+    player_id = select_player()
+    if not player_id:
+        print_operation_cancelled()
+        return
+
+    current_details = get_player_details(player_id)
+    if not current_details:
+        print_update_failed(f"player with ID {player_id} (not found)")
+        return
+
+    changes = get_updated_player_info_input(current_details)
+
+    if not changes:
+        print("No changes were made.")
+        return
+
+    # Separate changes for Person table and Person_Team table
+    person_changes = {k: v for k, v in changes.items() if k in ['first_name', 'last_name']}
+    shirt_num_change = changes.get('shirt_num')
+
+    person_updated = True
+    shirt_updated = True
+
+    if person_changes:
+        person_updated = update_entry('Person', player_id, person_changes)
+
+    if shirt_num_change is not None:
+        shirt_updated = update_player_shirt_number(player_id, shirt_num_change)
+
+    if person_updated and shirt_updated:
+        print_update_success(f"Player {player_id}'s information")
+    else:
+        print_update_failed(f"Player {player_id}'s information")
+
+def cmd_update_team_info():
+    """Controller to update a team's name."""
+    team_id = select_team_for_action()
+    if not team_id:
+        print_operation_cancelled()
+        return
+
+    new_name = get_new_team_name_input()
+    if update_entry('Team', team_id, {'name': new_name}):
+        print_update_success(f"Team {team_id}'s name")
+    else:
+        print_update_failed(f"team {team_id}'s name")
+
+def cmd_delete_player():
+    """Controller to delete a player and their related records."""
+    player_id = select_player() # select_player already uses the correct selection logic
+    if not player_id:
+        print_operation_cancelled()
+        return
+    
+    if delete_player(player_id):
+        print_delete_success("Player", player_id)
+    else:
+        print_delete_failed("Player", player_id, "Note: Players with recorded match events cannot be deleted.")
+
+def cmd_delete_team():
+    """Controller to delete a team."""
+    team_id = select_team_for_action()
+    if not team_id:
+        print_operation_cancelled()
+        return
+    
+    if delete_team(team_id):
+        print_delete_success("Team", team_id)
+    else:
+        print_delete_failed("Team", team_id, "Note: Teams with existing matches cannot be deleted.")
 
 def select_team_for_action():
     """
@@ -198,16 +267,20 @@ def calculate_standings(phase_id):
         return calculate_standings_for_phase(phase_id)
 
 
-def creation_menu():
-    """Handles the sub-menu for creating teams and players."""
+def management_menu():
+    """Handles the sub-menu for creating and updating entities."""
     while True:
         choice = get_menu_choice(
-            "--- Creation Menu ---",
+            "--- Management Menu ---",
             {
                 "1": "Create a new team",
                 "2": "Create a player for a team",
                 "3": "Create a new season",
-                "4": "Back to Team Menu"
+                "4": "Change Player Information",
+                "5": "Change Team Information",
+                "6": "Delete a Player",
+                "7": "Delete a Team",
+                "8": "Back to Main Menu"
             }
         )
         if choice == "1":
@@ -217,6 +290,14 @@ def creation_menu():
         elif choice == "3":
             cmd_create_season_with_phases()
         elif choice == "4":
+            cmd_update_player_info()
+        elif choice == "5":
+            cmd_update_team_info()
+        elif choice == "6":
+            cmd_delete_player()
+        elif choice == "7":
+            cmd_delete_team()
+        elif choice == "8":
             return
 
 def get_year():
@@ -295,7 +376,7 @@ def stats_menu():
             return  # Go back
 
 def main_menu(index):
-    if index==1: creation_menu()
+    if index==1: management_menu()
     elif index==2: view_menu()
     elif index==3: stats_menu()
     elif index==4: return True
@@ -312,6 +393,6 @@ if __name__ == "__main__":
     while not exit:
         choice = get_menu_choice(
             "Press one of the following options:",
-            {"1": "Creation Menu", "2": "View League and Teams", "3": "Stats", "4": "Exit"}
+            {"1": "Management Menu", "2": "View League and Teams", "3": "Stats", "4": "Exit"}
         )
         exit = main_menu(int(choice))

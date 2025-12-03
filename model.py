@@ -216,6 +216,10 @@ def update_entry(table_name, entry_id, data_dict):
     values = list(data_dict.values()) + [entry_id]
     return _execute_cud(sql, tuple(values))
 
+def update_player_shirt_number(player_id, new_shirt_number):
+    """Updates a player's shirt number in the Person_Team table."""
+    return _execute_cud("UPDATE Person_Team SET shirt_num = %s WHERE person_id = %s", (new_shirt_number, player_id))
+
 def get_all_events():
     with get_connection() as con:
             with con.cursor() as cur:
@@ -508,3 +512,62 @@ def create_player(player_data):
     except pymysql.Error:
         # If anything fails (person insert, team insert), the transaction is rolled back automatically by the `with` block exit.
         return False
+
+def delete_player(player_id):
+    """
+    Deletes a player and all their related records within a transaction.
+    The order of deletion is important to respect foreign key constraints.
+    """
+    try:
+        with get_connection() as con:
+            con.begin() # Start a transaction
+            with con.cursor() as cur:
+                # 1. Check if the player has any events. If so, we cannot delete them.
+                cur.execute("SELECT 1 FROM Event_Creation WHERE person_id = %s LIMIT 1", (player_id,))
+                if cur.fetchone():
+                    return False # Player has events, deletion is not allowed to preserve history.
+
+                # 2. Delete from child tables that don't affect historical stats (like team assignments)
+                cur.execute("DELETE FROM Person_Team WHERE person_id = %s", (player_id,))
+                # 3. Finally, delete from the parent table
+                cur.execute("DELETE FROM Person WHERE id = %s", (player_id,))
+            con.commit() # Commit all changes if successful
+            return True
+    except pymysql.Error:
+        return False # The 'with' block will automatically roll back the transaction on error
+
+def delete_team(team_id):
+    """
+    Deletes a team and its related records within a transaction.
+    Prevents deletion if the team has participated in any matches.
+    """
+    try:
+        with get_connection() as con:
+            con.begin() # Start a transaction
+            with con.cursor() as cur:
+                # 1. Check if the team is part of any match. If so, we cannot delete it.
+                cur.execute("SELECT 1 FROM `Match` WHERE home_team_id = %s OR away_team_id = %s LIMIT 1", (team_id, team_id))
+                if cur.fetchone():
+                    return False # Team has matches, deletion is not allowed.
+
+                # 2. Delete from child tables first
+                cur.execute("DELETE FROM Person_Team WHERE team_id = %s", (team_id,))
+                cur.execute("DELETE FROM Team_stadium WHERE team_id = %s", (team_id,))
+                
+                # 3. Finally, delete from the parent table
+                cur.execute("DELETE FROM Team WHERE id = %s", (team_id,))
+            con.commit() # Commit all changes if successful
+            return True
+    except pymysql.Error:
+        return False # The 'with' block will automatically roll back the transaction on error
+
+def get_player_details(player_id):
+    """Fetches detailed information for a single player."""
+    sql = """
+        SELECT p.first_name, p.last_name, pt.shirt_num
+        FROM Person p
+        LEFT JOIN Person_Team pt ON p.id = pt.person_id
+        WHERE p.id = %s
+    """
+    result = query(sql, (player_id,))
+    return result[0] if result else None

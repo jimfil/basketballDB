@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Match{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="round_id">Round</label>
+    <select name="round_id" id="round_id" required>
+      {% for round in rounds %}
+        <option value="{{ round.id }}">{{ round.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="stadium_id">Stadium</label>
+    <select name="stadium_id" id="stadium_id" required>
+      {% for stadium in stadiums %}
+        <option value="{{ stadium.id }}">{{ stadium.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="home_team_id">Home Team</label>
+    <select name="home_team_id" id="home_team_id" required>
+      {% for team in teams %}
+        <option value="{{ team.id }}">{{ team.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="away_team_id">Away Team</label>
+    <select name="away_team_id" id="away_team_id" required>
+      {% for team in teams %}
+        <option value="{{ team.id }}">{{ team.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="match_date">Match Date</label>
+    <input name="match_date" id="match_date" type="date" required>
+    <label for="status">Status</label>
+    <input name="status" id="status" required>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

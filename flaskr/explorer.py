@@ -11,19 +11,12 @@ from basketballDB.model import (
     get_matches_by_phase,
     get_scores,
     get_team_name,
-    calculate_standings_for_phase,
 )
 
 bp = Blueprint("explorer", __name__, url_prefix="/explorer")
 
 
-def calculate_standings(phase_id):
-    """Calculates standings for a given phase_id using an optimized query."""
-    return calculate_standings_for_phase(phase_id)
-
-
 @bp.route("/")
-@login_required
 def index():
     season_year = request.args.get("season_year")
     phase_id = request.args.get("phase_id")
@@ -54,7 +47,6 @@ def index():
 
 
 @bp.route("/match/<int:match_id>")
-@login_required
 def match_details(match_id):
     match = get_match(match_id)
     players = get_players_in_match(match_id)
@@ -66,18 +58,3 @@ def match_details(match_id):
         players=players,
         events=events,
     )
-
-
-@bp.route("/standings")
-@login_required
-def standings():
-    season_year = request.args.get("season_year")
-    phase_id = request.args.get("phase_id")
-    standings = None
-    phases = None
-    seasons = get_seasons()
-    if season_year:
-        phases = get_phases_by_season(season_year)
-    if phase_id:
-        standings = calculate_standings(phase_id)
-    return render_template("explorer/standings.html", standings=standings, phases=phases, seasons=seasons, selected_phase=phase_id, selected_season=season_year)

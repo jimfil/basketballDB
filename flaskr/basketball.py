@@ -7,7 +7,6 @@ from basketballDB.model import (
     get_player_stats,
     get_matches,
     get_match_stats,
-    create_team,
     get_matches_by_team,
     get_scores,
     get_player_shot_stats,
@@ -16,12 +15,13 @@ from basketballDB.model import (
 bp = Blueprint("basketball", __name__, url_prefix="/basketball")
 
 
-@bp.route("/")
+@bp.route("/", defaults={"offset": 0})
+@bp.route("/<int:offset>")
 @login_required
-def index():
-    """Show all the teams."""
-    teams = get_teams()
-    return render_template("basketball/index.html", teams=teams)
+def index(offset):
+    """Show teams with pagination."""
+    teams = get_teams(offset=offset)
+    return render_template("basketball/index.html", teams=teams, offset=offset)
 
 
 @bp.route("/events")
@@ -58,16 +58,7 @@ def match_details(id):
     return render_template("basketball/match_details.html", stats=stats, scores=scores)
 
 
-@bp.route("/team/create", methods=("GET", "POST"))
-@login_required
-def create_team_route():
-    """Create a new team."""
-    if request.method == "POST":
-        team_name = request.form["team_name"]
-        if team_name:
-            create_team(team_name)
-            return redirect(url_for("basketball.index"))
-    return render_template("basketball/create_team.html")
+
 
 
 @bp.route("/team/<int:team_id>/matches")
@@ -113,3 +104,9 @@ def player_shot_percentage(player_id):
         player_id=player_id,
         shot_stats=shot_stats,
     )
+
+
+
+
+
+

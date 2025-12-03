@@ -6,14 +6,14 @@
 
 {% block content %}
   <form method="post">
-    <label for="year">Season</label>
-    <select name="year" id="year">
+    <label for="name">Phase Name</label>
+    <input name="name" id="name" required>
+    <label for="season_id">Season</label>
+    <select name="season_id" id="season_id" required>
       {% for season in seasons %}
-        <option value="{{ season.year }}">{{ season.year }}</option>
+        <option value="{{ season.id }}">{{ season.year }}</option>
       {% endfor %}
     </select>
-    <label for="name">Name</label>
-    <input name="name" id="name" required>
     <input type="submit" value="Create">
   </form>
 {% endblock %}

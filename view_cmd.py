@@ -21,11 +21,29 @@ def display_years(years):
     for year in years: print(year)
 
 
-def display_standings(standings_list):
-    print(f"\n{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}")
-    print("-" * 65)
-    for i, team in enumerate(standings_list):
-        print(f"{i+1:<5}{team['name']:<25}{team['wins']:<5}{team['losses']:<5}")
+def display_standings(standings_list, is_group_stage=False):
+    if not is_group_stage or not standings_list or 'group_rank' not in standings_list[0]: # pragma: no cover
+        # Fallback to simple display for knockout or old format
+        header = f"\n{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}"
+        print(header)
+        print("-" * 50)
+        for i, team in enumerate(standings_list):
+            print(f"{i+1:<5}{team['name']:<25}{team['wins']:<5}{team['losses']:<5}")
+    else:
+        # Group-aware display logic
+        current_group = None
+        group_char = 'A'
+        for team in standings_list:
+            if team['group_identifier'] != current_group:
+                current_group = team['group_identifier']
+                print(f"\n--- Group {group_char} ---")
+                print(f"{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}{'Status':<15}")
+                print("-" * 55)
+                group_char = chr(ord(group_char) + 1)
+
+            status = "Qualified" if team['group_rank'] <= 4 else "Not Qualified"
+            print(f"{team['group_rank']:<5}{team['name']:<25}{int(team['wins']):<5}{int(team['losses']):<5}{status:<15}")
+
     input("\nPress [Enter] to continue...")
 
 def display_phases(phases):
@@ -105,7 +123,9 @@ def display_matches_for_team(team_name, matches):
         print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_id']:<15}{match['away_team_id']}")
 
 
-def get_year_input(): return input("Please input the League's Year, or 'q' to go back:")
+def get_year_input(prompt="Please input the League's Year, or 'q' to go back:"):
+    """Prompts the user for a year input with a customizable prompt."""
+    return input(f"{prompt} ").strip()
 
 def get_player_info_input():
     """Prompts user for new player details and returns them as a dict."""
@@ -133,6 +153,10 @@ def print_select_from_list(example):print(f"\nPlease select a {example} from the
 def print_no_more_found(example):print(f"No more {example} found.")
 def print_no_group_phase_found():print("No group phase found for the selected season.")
 def print_no_knockout_rounds_found():print("No rounds found for the knock out phase.")
+def print_season_creation_failed(year): print(f"Failed to create season '{year}'. It may already exist.")
+def print_season_creation_success(year): print(f"Season '{year}' created successfully.")
+def print_phases_creation_success(): print("Group Stage and Knockout phases created.")
+def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
 def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
 def print_player_creation_success(first_name, last_name): print(f"Player '{first_name} {last_name}' created successfully.")
 def print_operation_cancelled(): print("Operation cancelled.")

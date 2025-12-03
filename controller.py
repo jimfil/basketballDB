@@ -88,6 +88,31 @@ def cmd_create_team():
     create_team(team_name)
     print_team_creation_success(team_name)
 
+def cmd_create_season_with_phases():
+    """Controller to create a season, its phases, and knockout rounds."""
+    year = get_year_input(prompt="Enter the year for the new season, or 'q' to cancel:")
+    if not year or not year.isdigit():
+        print_operation_cancelled()
+        return
+
+    # 1. Create Season
+    if not create_season(year):
+        print_season_creation_failed(year)
+        return
+    print_season_creation_success(year)
+
+    # 2. Create Phases (Group Stage and Knockout)
+    create_phase(year, 1)  # phase_id 1 for Group Stage
+    knockout_phase_id = create_phase(year, 2)  # phase_id 2 for Knockout
+    print_phases_creation_success()
+
+    # 3. Create Rounds for the Knockout phase
+    if knockout_phase_id:
+        round_names = [1, 2, 3, 4]
+        for name in round_names:
+            create_round(name, knockout_phase_id)
+        print_rounds_creation_success()
+
 def cmd_create_player_for_team():
     """Controller function to create a player and assign them to a team."""
     print("First, select the team for the new player.")
@@ -148,36 +173,11 @@ def shot_percentage_control():
         find_player_shot_percentage(player_id, shot_map[choice])
 
 def calculate_standings(phase_id):
-    """Calculates standings for a given phase_id using an optimized query."""
-    if not phase_id:
-        print("No phase selected.")
-        return []
+    if phase_id == 1: # Assuming phase_id 1 is always group stage
+        return calculate_group_stage_standings(phase_id)
+    else:
+        return calculate_standings_for_phase(phase_id)
 
-    matches = get_matches_by_phase(phase_id)
-    standings = {}
-
-    for match in matches:
-        home_team_id = match['home_team_id']
-        away_team_id = match['away_team_id']
-
-        # Initialize teams in standings if not present
-        if home_team_id not in standings:
-            standings[home_team_id] = {'name': get_team_name(home_team_id)[0]['name'], 'wins': 0, 'losses': 0}
-        if away_team_id not in standings:
-            standings[away_team_id] = {'name': get_team_name(away_team_id)[0]['name'], 'wins': 0, 'losses': 0}
-
-        scores = get_scores(match['match_id'])
-        home_score = scores.get(home_team_id, 0)
-        away_score = scores.get(away_team_id, 0)
-
-        if home_score > away_score:
-            standings[home_team_id]['wins'] += 1
-            standings[away_team_id]['losses'] += 1
-        else:
-            standings[home_team_id]['losses'] += 1
-            standings[away_team_id]['wins'] += 1
-
-    return sorted(standings.values(), key=lambda x: x['wins'], reverse=True)
 
 def creation_menu():
     """Handles the sub-menu for creating teams and players."""
@@ -187,7 +187,7 @@ def creation_menu():
             {
                 "1": "Create a new team",
                 "2": "Create a player for a team",
-                "3": "Not Implemented",
+                "3": "Create a new season",
                 "4": "Back to Team Menu"
             }
         )
@@ -196,33 +196,34 @@ def creation_menu():
         elif choice == "2":
             cmd_create_player_for_team()
         elif choice == "3":
-            print("This feature is not yet implemented.")
+            cmd_create_season_with_phases()
         elif choice == "4":
-            return
-
-def team_menu():
-    while True:
-        choice = get_menu_choice(
-            "--- Team Management ---",
-            {"1": "Creation Menu", "2": "View Teams", "3": "Back to Main Menu"}
-        )
-        if choice == "1":
-            creation_menu()
-        elif choice == "2":
-            view_teams()
-        elif choice == "3":
             return
 
 def get_year():
     giwrgos = get_seasons()
     lista = [item["year"] for item in giwrgos]
     display_years(lista)
-    while True:
+    while True: # pragma: no cover
         year_id = get_year_input() 
         if year_id.lower() == 'q': return None
         if int(year_id) in lista: break
         invalid_input()
     return year_id
+
+def view_menu():
+    """Handles the sub-menu for viewing league and teams."""
+    while True:
+        choice = get_menu_choice(
+            "--- View Menu ---",
+            {"1": "View League", "2": "View Teams", "3": "Back to Main Menu"}
+        )
+        if choice == "1":
+            league_menu()
+        elif choice == "2":
+            view_teams()
+        elif choice == "3":
+            return
     
 def league_menu():
     year_id = get_year()
@@ -238,8 +239,8 @@ def league_menu():
             if group_phase is None:
                 print_no_group_phase_found()
                 continue
-            standings = calculate_standings(group_phase['id'])
-            display_standings(standings)
+            standings = calculate_group_stage_standings(group_phase['id'])
+            display_standings(standings, is_group_stage=True)
 
         elif index == "2":
             phases = get_phases_by_season(year_id)
@@ -248,7 +249,7 @@ def league_menu():
                 print_no_knockout_rounds_found()
                 continue
             standings = calculate_standings(knockout_phase['id'])
-            display_standings(standings)
+            display_standings(standings, is_group_stage=False)
         elif index == "3": 
             year_id = get_year()
             continue
@@ -275,8 +276,8 @@ def stats_menu():
             return  # Go back
 
 def main_menu(index):
-    if index==1: team_menu()
-    elif index==2: league_menu()
+    if index==1: creation_menu()
+    elif index==2: view_menu()
     elif index==3: stats_menu()
     elif index==4: return True
     return False
@@ -292,6 +293,6 @@ if __name__ == "__main__":
     while not exit:
         choice = get_menu_choice(
             "Press one of the following options:",
-            {"1": "Team Menu", "2": "View League", "3": "Stats", "4": "Exit"}
+            {"1": "Creation Menu", "2": "View League and Teams", "3": "Stats", "4": "Exit"}
         )
         exit = main_menu(int(choice))

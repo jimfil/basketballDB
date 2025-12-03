@@ -157,14 +157,24 @@ def create_event(name, type, subtype):
         except pymysql.err.IntegrityError as e:
             return
 
-def create_phase(year, name):
+def create_round(round_id, phase_id):
     with get_connection() as con:
         cur = con.cursor()
         try:
-            cur.execute("INSERT INTO phase (year, name) VALUES (%s, %s);",  (year, name))
+            cur.execute("INSERT INTO Round (round_id, phase_id) VALUES (%s, %s);", (round_id, phase_id))
             con.commit()
         except pymysql.err.IntegrityError as e:
             return
+
+def create_phase(year, phase_id):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO phase (year, phase_id) VALUES (%s, %s);", (year, phase_id))
+            con.commit()
+            return cur.lastrowid
+        except pymysql.err.IntegrityError as e:
+            return None
 
 def create_team(name):
     with get_connection() as con:
@@ -282,42 +292,129 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
                 params.append(match_id)
 
             sql += " GROUP BY e.name;"
-            cur.execute(sql, params)
-            return dict(cur.fetchall())
-        
-def get_scores(match_id):
-    sql = """
-        SELECT 
-            m.home_team_id,
-            m.away_team_id,
-            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name = '3-Point Field Goal Made' THEN 3 ELSE 0 END) +
-            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name = '2-Point Field Goal Made' THEN 2 ELSE 0 END) +
-            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name = 'Free Throw Made' THEN 1 ELSE 0 END) as home_score,
-            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name = '3-Point Field Goal Made' THEN 3 ELSE 0 END) +
-            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name = '2-Point Field Goal Made' THEN 2 ELSE 0 END) +
-            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name = 'Free Throw Made' THEN 1 ELSE 0 END) as away_score
-        FROM `Match` m
-        LEFT JOIN Event_Creation ec ON m.id = ec.match_id
-        LEFT JOIN Event e ON ec.event_id = e.id
-        LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (m.home_team_id, m.away_team_id)
-        WHERE m.id = %s
-        GROUP BY m.home_team_id, m.away_team_id;
-    """
-    result = query(sql, (match_id,))
-    
-    if not result:
-        # If the match doesn't exist, we can check for it to return an empty dict or None
-        match_exists = query("SELECT id FROM `Match` WHERE id = %s", (match_id,))
-        return {} if match_exists else None
+            cur.execute(sql, tuple(params))
+            return {k: int(v) for k, v in cur.fetchall()}
 
-    score_data = result[0]
-    home_team_id = score_data['home_team_id']
-    away_team_id = score_data['away_team_id']
-    
-    return {
-        home_team_id: int(score_data.get('home_score') or 0),
-        away_team_id: int(score_data.get('away_score') or 0)
-    }
+def calculate_group_stage_standings(phase_id):
+    """
+    Calculates group stage standings, correctly ranking teams within their dynamically identified groups.
+    Qualification is based on being in the top 4 of a group.
+    """
+    sql = """
+    WITH PhaseMatches AS (
+        -- 1. Get all matches for the group stage phase
+        SELECT m.id, m.home_team_id, m.away_team_id
+        FROM `Match` m
+        JOIN `Round` r ON m.round_id = r.id
+        WHERE r.phase_id = %s AND m.status = 'Completed'
+    ),
+    TeamOpponents AS (
+        -- 2. For each team, list all opponents they played against in this phase
+        SELECT home_team_id AS team_id, away_team_id AS opponent_id FROM PhaseMatches
+        UNION
+        SELECT away_team_id AS team_id, home_team_id AS opponent_id FROM PhaseMatches
+    ),
+    TeamGroups AS (
+        -- 3. Use a recursive CTE to find connected components (the groups).
+        -- The group_identifier will be the smallest team ID in each connected component.
+        WITH RECURSIVE GroupWalk (team_id, group_identifier) AS (
+            SELECT id, id FROM Team WHERE id IN (SELECT team_id FROM TeamOpponents)
+            UNION
+            SELECT o.opponent_id, gw.group_identifier
+            FROM GroupWalk gw JOIN TeamOpponents o ON gw.team_id = o.team_id
+        )
+        SELECT team_id, MIN(group_identifier) as group_identifier FROM GroupWalk GROUP BY team_id
+    ),
+    MatchScores AS (
+        -- 4. Calculate scores for each match
+        SELECT
+            pm.id as match_id,
+            pm.home_team_id,
+            pm.away_team_id,
+            SUM(CASE WHEN pt.team_id = pm.home_team_id AND e.name LIKE '%%Made' THEN
+                CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                ELSE 0 END) AS home_score,
+            SUM(CASE WHEN pt.team_id = pm.away_team_id AND e.name LIKE '%%Made' THEN
+                CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                ELSE 0 END) AS away_score
+        FROM PhaseMatches pm
+        LEFT JOIN Event_Creation ec ON pm.id = ec.match_id
+        LEFT JOIN Event e ON ec.event_id = e.id
+        LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (pm.home_team_id, pm.away_team_id)
+        GROUP BY pm.id, pm.home_team_id, pm.away_team_id
+    ),
+    Wins AS (
+        -- 5. Count wins for each team
+        SELECT
+            CASE WHEN home_score > away_score THEN home_team_id ELSE away_team_id END as team_id,
+            COUNT(*) as wins
+        FROM MatchScores
+        GROUP BY team_id
+    ),
+    RankedTeams AS (
+        -- 6. Join all data and rank teams within their group
+        SELECT
+            t.name,
+            tg.group_identifier,
+            COALESCE(w.wins, 0) AS wins,
+            (SELECT COUNT(*) FROM PhaseMatches pm WHERE pm.home_team_id = t.id OR pm.away_team_id = t.id) - COALESCE(w.wins, 0) AS losses,
+            RANK() OVER (PARTITION BY tg.group_identifier ORDER BY COALESCE(w.wins, 0) DESC, t.id) as group_rank
+        FROM Team t
+        JOIN TeamGroups tg ON t.id = tg.team_id
+        LEFT JOIN Wins w ON t.id = w.team_id
+    )
+    -- 7. Final selection and ordering
+    SELECT name, wins, losses, group_identifier, group_rank
+    FROM RankedTeams
+    ORDER BY group_identifier, group_rank;
+    """
+    return query(sql, (phase_id,))
+
+def calculate_standings_for_phase(phase_id):
+    """Calculates standings for a non-group phase (e.g., knockouts)."""
+    sql = """
+        WITH MatchScores AS (
+            SELECT
+                m.id AS match_id,
+                m.home_team_id,
+                m.away_team_id,
+                SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS home_score,
+                SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS away_score
+            FROM `Match` m
+            JOIN `Round` r ON m.round_id = r.id
+            LEFT JOIN Event_Creation ec ON m.id = ec.match_id
+            LEFT JOIN Event e ON ec.event_id = e.id
+            LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (m.home_team_id, m.away_team_id)
+            WHERE r.phase_id = %s AND m.status = 'Completed'
+            GROUP BY m.id, m.home_team_id, m.away_team_id
+        ),
+        Winners AS (
+            SELECT
+                CASE WHEN home_score > away_score THEN home_team_id ELSE away_team_id END as winner_id,
+                CASE WHEN home_score < away_score THEN home_team_id ELSE away_team_id END as loser_id
+            FROM MatchScores
+        )
+        SELECT
+            t.id,
+            t.name,
+            COALESCE(w.wins, 0) AS wins,
+            COALESCE(l.losses, 0) AS losses
+        FROM Team t
+        LEFT JOIN (SELECT winner_id, COUNT(*) as wins FROM Winners GROUP BY winner_id) w ON t.id = w.winner_id
+        LEFT JOIN (SELECT loser_id, COUNT(*) as losses FROM Winners GROUP BY loser_id) l ON t.id = l.loser_id
+        WHERE COALESCE(w.wins, 0) > 0 OR COALESCE(l.losses, 0) > 0
+        ORDER BY wins DESC;
+    """
+    standings = query(sql, (phase_id,))
+    # Convert Decimal to int for consistency
+    for team_stats in standings:
+        team_stats['wins'] = int(team_stats['wins'])
+        team_stats['losses'] = int(team_stats['losses'])
+    return standings        
 
 def get_phases_by_season(year):
     return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
@@ -372,8 +469,9 @@ def create_season(year):
         try:
             cur.execute("INSERT INTO Season (year) VALUES (%s);", (year,))
             con.commit()
+            return True
         except pymysql.err.IntegrityError as e:
-            return  # Season already exists
+            return False  # Season already exists
 
 
 def get_person_attributes():

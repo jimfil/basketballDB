@@ -42,12 +42,20 @@ def find_playerstats(player_id):
     if not player_id:
         return # User quit selection
     # The pagination for stats is display-only, no selection, so we keep its simple loop.
-    handle_pagination(lambda page: get_player_stats(player_id, page), display_player_stats)
+    handle_pagination(lambda page: get_player_stats(player_id, offset=page), display_player_stats)
 
 def view_teams():
     """Controller to view all teams or a single team."""
     print_select_from_list("team")
-    return handle_pagination(lambda page: get_teams(page), display_teams)
+    team_id = handle_pagination(lambda page: get_teams(page), display_teams)
+    if team_id:
+        print_player_list_header(team_id)
+        # This pagination is display-only, so we don't need to capture a selection.
+        # The inner handle_pagination will loop until the user quits.
+        handle_pagination(lambda page: get_players(team_id, offset=page), display_players_paginated)
+        return None # Explicitly return None as we've completed the action.
+    return None # Return None if user quit team selection
+
 
 def find_matches_for_team():
     team_id = view_teams()
@@ -56,7 +64,7 @@ def find_matches_for_team():
 
     team_name, _ = get_matches_by_team(team_id, 0) # Fetch team name
     page = 0
-    print_select_from_list("match")
+    print_select_from_list("match") # This is a view function, so it's OK.
 
     # Custom fetcher for matches as it returns a tuple (team_name, matches)
     # The generic paginator expects a list of items.
@@ -70,7 +78,7 @@ def find_matches_for_team():
 def find_matchstats(match_id):
     if not match_id:
         return
-    handle_pagination(lambda page: get_match_stats(match_id, page), display_match_stats)
+    handle_pagination(lambda page: get_match_stats(match_id, offset=page), display_match_stats)
 
 def select_player():
     team_id = view_teams()
@@ -78,15 +86,17 @@ def select_player():
         return None
 
     print_select_from_list("players")
-    return handle_pagination(lambda page: get_players(team_id, page), display_players_paginated)
+    return handle_pagination(lambda page: get_players(team_id, offset=page), display_players_paginated)
 
 def cmd_create_team():
     team_name = get_team_name_input()
     if not team_name:
         print_operation_cancelled()
         return
-    create_team(team_name)
-    print_team_creation_success(team_name)
+    if create_team(team_name):
+        print_team_creation_success(team_name)
+    else:
+        print_creation_failed("team", team_name)
 
 def cmd_create_season_with_phases():
     """Controller to create a season, its phases, and knockout rounds."""
@@ -115,7 +125,7 @@ def cmd_create_season_with_phases():
 
 def cmd_create_player_for_team():
     """Controller function to create a player and assign them to a team."""
-    print("First, select the team for the new player.")
+    print_select_team_for_player()
     team_id = view_teams()
     if not team_id:
         print_operation_cancelled()
@@ -127,8 +137,17 @@ def cmd_create_player_for_team():
         return
 
     player_info.update({"team_id": team_id, "speciality": "Player"})
-    create_player(player_info) # This is the function from model.py
-    print_player_creation_success(player_info['first_name'], player_info['last_name'])
+    if create_player(player_info):
+        print_player_creation_success(player_info['first_name'], player_info['last_name'])
+    else:
+        print_creation_failed("player", f"{player_info['first_name']} {player_info['last_name']}")
+
+def select_team_for_action():
+    """
+    A dedicated controller for selecting a team and returning its ID for further actions.
+    """
+    print_select_from_list("team")
+    return handle_pagination(lambda page: get_teams(page), display_teams)
 
 def find_player_shot_percentage(player_id, shot_type, match_id=None):
     stats = get_player_shot_stats(player_id, shot_type, match_id)
@@ -221,7 +240,7 @@ def view_menu():
         if choice == "1":
             league_menu()
         elif choice == "2":
-            view_teams()
+            view_teams() # This now shows teams and then players for the selected team.
         elif choice == "3":
             return
     
@@ -267,9 +286,9 @@ def stats_menu():
         )
         index = int(choice)
         if index == 1:
-            find_playerstats(select_player())
+            find_playerstats(select_player()) # select_player uses select_team_for_action
         elif index == 2:                # dialegw omada -> blepw agwnes (Omada 1 - Omada 2) (73 - 68 )
-            find_matches_for_team()                  
+            find_matches_for_team() # find_matches_for_team uses select_team_for_action
         elif index == 3:
             shot_percentage_control()
         elif index == 4:

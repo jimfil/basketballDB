@@ -60,18 +60,16 @@ def display_player_stats(stats):
         print("No more stats found for this Player.")
         return
     for row in stats:
-        match_id, event_name, game_time = row
-        print(f"{match_id:<8}{event_name:<28}{str(game_time)}") 
+        print(f"{row['match_id']:<8}{row['name']:<28}{str(row['game_time'])}") 
 
 def display_match_stats(stats):
     """Displays a formatted page of match events."""
-    print(f"{'Team:':<24}{'Number Shirt':<15}{'Player':<20}{'Event Made':<28}{'Time'}")
+    print(f"{'Team':<24}{'Shirt':<8}{'Player':<20}{'Event':<28}{'Time'}")
     if not stats:
         print("No more events found for this Match.")
         return
     for row in stats:
-        shirt_number, last_name, event_name, game_time, team_name = row
-        print(f"{team_name:<24}{shirt_number:<15}{last_name:<20}{event_name:<28}{str(game_time)}") 
+        print(f"{row['team_name']:<24}{row['shirt_num']:<8}{row['last_name']:<20}{row['event_name']:<28}{str(row['game_time'])}") 
 
 def display_shot_analysis(analysis_data):
     """Displays the analysis of shot percentages."""
@@ -105,9 +103,9 @@ def display_players_paginated(players):
         print("No more players found.")
         return
 
-    print(f"{'Speciality':<20}{'ID':<10}{'First Name':<20}{'Last Name':<20}{'Number Shirt':<20}{'Team ID'}")
+    print(f"{'ID':<10}{'First Name':<20}{'Last Name':<20}{'Shirt':<10}{'Speciality':<20}")
     for player in players:
-        print(f"{player[0]:<20}{player[1]:<10}{player[2]:<20}{player[3]:<20}{player[4]:<20}{player[5]:<20}")
+        print(f"{player['id']:<10}{player['first_name']:<20}{player['last_name']:<20}{player['shirt_num']:<10}{player['speciality']:<20}")
     print("")
 
 def display_matches_for_team(team_name, matches):
@@ -149,11 +147,14 @@ def get_team_name_input(): return input("Enter the new team's name (or leave bla
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
 
         
+def print_player_list_header(team_id): print(f"\n--- Players for Team ID: {team_id} ---")
+def print_select_team_for_player(): print("First, select the team for the new player.")
 def print_select_from_list(example):print(f"\nPlease select a {example} from the list below.")
 def print_no_more_found(example):print(f"No more {example} found.")
 def print_no_group_phase_found():print("No group phase found for the selected season.")
 def print_no_knockout_rounds_found():print("No rounds found for the knock out phase.")
 def print_season_creation_failed(year): print(f"Failed to create season '{year}'. It may already exist.")
+def print_creation_failed(item_type, name): print(f"Failed to create {item_type} '{name}'. It may already exist or there was a database error.")
 def print_season_creation_success(year): print(f"Season '{year}' created successfully.")
 def print_phases_creation_success(): print("Group Stage and Knockout phases created.")
 def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")

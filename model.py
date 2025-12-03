@@ -44,18 +44,16 @@ def get_persons(limit=0):
     
     return query(sql, params)
 
-def get_players(team,offset = 0): # dineis player id kai posa 10 thes na skipareis
-    with get_connection() as con:
-            with con.cursor() as cur:
-                sql ='''SELECT p.speciality,p.id, p.first_name, p.last_name, pt.shirt_num,pt.team_id
-                            FROM person as p
-                            JOIN person_team as pt
-                            ON p.id = pt.person_id
-                            AND pt.team_id = %s
-                            LIMIT 10 OFFSET %s'''
-                cur.execute(sql,(team,offset*10))
-                tuples = cur.fetchall()
-                return tuples
+def get_players(team_id, offset=0, limit=10):
+    """Fetches players for a given team, paginated. Returns a list of dictionaries."""
+    sql ='''SELECT p.speciality, p.id, p.first_name, p.last_name, pt.shirt_num, pt.team_id
+            FROM person as p
+            JOIN person_team as pt ON p.id = pt.person_id
+            WHERE pt.team_id = %s
+            LIMIT %s OFFSET %s'''
+    params = (team_id, limit, offset * limit)
+    return query(sql, params)
+
             
 
 def get_teams(offset=0, limit=10):
@@ -112,78 +110,58 @@ def get_players_in_match(match_id):
     return home_players + away_players
 
 
+def _execute_cud(sql, params=()):
+    """
+    A private helper function to execute Create, Update, or Delete statements.
+    Returns True on success, False on any database error.
+    """
+    try:
+        with get_connection() as con:
+            with con.cursor() as cur:
+                cur.execute(sql, params)
+                con.commit()
+                return True
+    except pymysql.Error:
+        # Catches IntegrityError (duplicates) and any other DB operational error.
+        return False
+
+def _execute_insert_and_get_id(sql, params=()):
+    """
+    A private helper for INSERT statements that need to return the new row's ID.
+    Returns the new ID on success, None on failure.
+    """
+    try:
+        with get_connection() as con:
+            with con.cursor() as cur:
+                cur.execute(sql, params)
+                con.commit()
+                return cur.lastrowid
+    except pymysql.Error:
+        return None
+
 def create_season(year):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO Season (year) VALUES (%s);",  (year,))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma
+    return _execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
 
 def create_stadium(name, capacity):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO Stadium (name, capacity) VALUES (%s, %s);",  (name, capacity))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return
+    return _execute_cud("INSERT INTO Stadium (name, capacity) VALUES (%s, %s);", (name, capacity))
 
 def create_person(first_name, last_name, speciality):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);",  (first_name, last_name, speciality))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return
+    return _execute_cud("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);", (first_name, last_name, speciality))
 
 def create_referee(first_name, last_name):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO referee (first_name, last_name) VALUES (%s, %s);",  (first_name, last_name))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return
+    return _execute_cud("INSERT INTO referee (first_name, last_name) VALUES (%s, %s);", (first_name, last_name))
 
 def create_event(name, type, subtype):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO event (name, type, subtype) VALUES (%s, %s, %s);",  (name, type, subtype))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return
+    return _execute_cud("INSERT INTO event (name, type, subtype) VALUES (%s, %s, %s);", (name, type, subtype))
 
 def create_round(round_id, phase_id):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO Round (round_id, phase_id) VALUES (%s, %s);", (round_id, phase_id))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return
+    return _execute_cud("INSERT INTO Round (round_id, phase_id) VALUES (%s, %s);", (round_id, phase_id))
 
 def create_phase(year, phase_id):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO phase (year, phase_id) VALUES (%s, %s);", (year, phase_id))
-            con.commit()
-            return cur.lastrowid
-        except pymysql.err.IntegrityError as e:
-            return None
+    return _execute_insert_and_get_id("INSERT INTO phase (year, phase_id) VALUES (%s, %s);", (year, phase_id))
 
 def create_team(name):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO Team (NAME) VALUES (%s);",  (name))
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma
+    return _execute_cud("INSERT INTO Team (NAME) VALUES (%s);", (name,))
 
 def return_cud_tables(): #Return the tables for which you can create update and delete entries. 
     with get_connection() as con:
@@ -213,26 +191,30 @@ def create_entry(table_name,list_user_input):
     col_names = return_attributes(table_name)
     columns_str = ", ".join(col_names) 
     placeholders = ", ".join(["%s"] * len(list_user_input)) #tha prepei na ta dinoume me thn swsth seira sto controller
-    with get_connection() as con:
-        with con.cursor() as cur:
-            sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
-            cur.execute(sql, list_user_input)
-            con.commit()
-            print("Entry created.")
-            return
+    sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+    return _execute_cud(sql, list_user_input)
 
 def delete_from_table(table_name,id):
-    with get_connection() as con:
-        with con.cursor() as cur:
-            query = f"DELETE FROM {table_name} WHERE id = %s;"
-            cur.execute(query, (id,))
-            con.commit()
+    sql = f"DELETE FROM {table_name} WHERE id = %s;"
+    return _execute_cud(sql, (id,))
         
-def update_entry(table_name, id, data_dict,gnwrisma):
-    with get_connection() as con:
-        with con.cursor() as cur:
-            cur.execute(f"UPDATE {table_name} SET {gnwrisma}={data_dict} WHERE id= {id};")
-            return
+def update_entry(table_name, entry_id, data_dict):
+    """
+    Securely updates one or more columns for an entry in a given table.
+
+    :param table_name: The name of the table to update.
+    :param entry_id: The ID of the row to update.
+    :param data_dict: A dictionary where keys are column names and values are the new data.
+    :return: True on success, False on failure.
+    """
+    if not data_dict:
+        return False # Nothing to update
+
+    set_clause = ", ".join([f"`{col}` = %s" for col in data_dict.keys()])
+    sql = f"UPDATE `{table_name}` SET {set_clause} WHERE `id` = %s"
+    
+    values = list(data_dict.values()) + [entry_id]
+    return _execute_cud(sql, tuple(values))
 
 def get_all_events():
     with get_connection() as con:
@@ -242,39 +224,31 @@ def get_all_events():
                 event_names = [name[0] for name in columns]
                 return event_names
 
-def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
-    with get_connection() as con:
-            with con.cursor() as cur:
-                sql ='''SELECT ec.match_id, e.name, ec.game_time
-                            FROM event_creation as ec
-                            JOIN event as e
-                            ON ec.event_id = e.id
-                            WHERE ec.person_id = %s
-                            LIMIT 10 OFFSET %s'''
-                cur.execute(sql,(id,i*10))
-                tuples = cur.fetchall()
-                return tuples
+def get_player_stats(player_id, offset=0, limit=10):
+    """Fetches paginated stats for a given player. Returns a list of dictionaries."""
+    sql ='''SELECT ec.match_id, e.name, ec.game_time
+            FROM event_creation as ec
+            JOIN event as e ON ec.event_id = e.id
+            WHERE ec.person_id = %s
+            LIMIT %s OFFSET %s'''
+    params = (player_id, limit, offset * limit)
+    return query(sql, params)
 
 
-def get_match_stats(id,offset = 0): # 
-    with get_connection() as con:
-            with con.cursor() as cur:
-                sql = '''SELECT pt.shirt_num, p.last_name, e.name, ec.game_time, t.name
-                            FROM event_creation as ec
-                            JOIN event as e
-                            ON ec.event_id = e.id
-                            JOIN person as p
-                            ON ec.person_id = p.id
-                            JOIN person_team as pt
-                            ON p.id = pt.person_id
-                            JOIN team as t
-                            ON pt.team_id = t.id    
-                            WHERE ec.match_id = %s
-                            ORDER BY ec.game_time, ec.event_id
-                            LIMIT 10 OFFSET %s'''
-                cur.execute(sql,(id,offset*10))                
-                tuples = cur.fetchall()
-                return tuples
+def get_match_stats(match_id, offset=0, limit=10):
+    """Fetches paginated events for a given match. Returns a list of dictionaries."""
+    sql = '''SELECT t.name as team_name, pt.shirt_num, p.last_name, e.name as event_name, ec.game_time
+             FROM event_creation as ec
+             JOIN event as e ON ec.event_id = e.id
+             JOIN person as p ON ec.person_id = p.id
+             JOIN person_team as pt ON p.id = pt.person_id
+             JOIN team as t ON pt.team_id = t.id
+             WHERE ec.match_id = %s
+             ORDER BY ec.game_time, ec.event_id
+             LIMIT %s OFFSET %s'''
+    params = (match_id, limit, offset * limit)
+    return query(sql, params)
+
 
 def get_player_shot_stats(player_id, shot_type, match_id=None):
     with get_connection() as con:
@@ -416,6 +390,43 @@ def calculate_standings_for_phase(phase_id):
         team_stats['losses'] = int(team_stats['losses'])
     return standings        
 
+def get_scores(match_id):
+    """Calculates the final score for a given match."""
+    sql = """
+        SELECT
+            m.home_team_id,
+            m.away_team_id,
+            SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name LIKE '%%Made' THEN
+                CASE e.name
+                    WHEN '3-Point Field Goal Made' THEN 3
+                    WHEN '2-Point Field Goal Made' THEN 2
+                    ELSE 1
+                END
+            ELSE 0 END) AS home_score,
+            SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name LIKE '%%Made' THEN
+                CASE e.name
+                    WHEN '3-Point Field Goal Made' THEN 3
+                    WHEN '2-Point Field Goal Made' THEN 2
+                    ELSE 1
+                END
+            ELSE 0 END) AS away_score
+        FROM `Match` m
+        LEFT JOIN Event_Creation ec ON m.id = ec.match_id
+        LEFT JOIN Event e ON ec.event_id = e.id
+        LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (m.home_team_id, m.away_team_id)
+        WHERE m.id = %s
+        GROUP BY m.id, m.home_team_id, m.away_team_id;
+    """
+    result = query(sql, (match_id,))
+    if not result:
+        return None
+    
+    scores = result[0]
+    return {
+        scores['home_team_id']: int(scores['home_score']),
+        scores['away_team_id']: int(scores['away_score'])
+    }
+
 def get_phases_by_season(year):
     return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
 
@@ -464,14 +475,7 @@ def get_team_name(team_id):
 
 
 def create_season(year):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
-            cur.execute("INSERT INTO Season (year) VALUES (%s);", (year,))
-            con.commit()
-            return True
-        except pymysql.err.IntegrityError as e:
-            return False  # Season already exists
+    return _execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
 
 
 def get_person_attributes():
@@ -479,32 +483,28 @@ def get_person_attributes():
 
 
 def create_player(player_data):
-    with get_connection() as con:
-        cur = con.cursor()
-        try:
+    try:
+        with get_connection() as con:
+            con.begin() # Start a transaction
             # Insert into Person table
             person_attributes = get_person_attributes()
-            # We need to make sure we only try to insert the attributes that are in the table
             person_data = {key: player_data[key] for key in person_attributes if key in player_data}
-            
             columns = ", ".join(person_data.keys())
             placeholders = ", ".join(["%s"] * len(person_data))
-            
-            sql = f"INSERT INTO Person ({columns}) VALUES ({placeholders})"
-            cur.execute(sql, list(person_data.values()))
-            
-            # Get the id of the new player
-            person_id = cur.lastrowid
-            
+            sql_person = f"INSERT INTO Person ({columns}) VALUES ({placeholders})"
+            with con.cursor() as cur:
+                cur.execute(sql_person, list(person_data.values()))
+                person_id = cur.lastrowid
+
             # Insert into Person_Team table
             team_id = player_data.get('team_id')
             shirt_num = player_data.get('shirt_num')
-            
             if team_id and shirt_num:
                 sql_person_team = "INSERT INTO Person_Team (person_id, team_id, shirt_num) VALUES (%s, %s, %s)"
-                cur.execute(sql_person_team, (person_id, team_id, shirt_num))
-            
-            con.commit()
-        except pymysql.err.IntegrityError as e:
-            # Handle potential integrity errors, e.g., duplicate entries
-            return {"error": str(e)}
+                with con.cursor() as cur2:
+                    cur2.execute(sql_person_team, (person_id, team_id, shirt_num))
+            con.commit() # Commit the transaction
+            return True
+    except pymysql.Error:
+        # If anything fails (person insert, team insert), the transaction is rolled back automatically by the `with` block exit.
+        return False

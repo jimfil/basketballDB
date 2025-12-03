@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Stadium{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="stadium_name">Stadium Name</label>
+    <input name="stadium_name" id="stadium_name" required>
+    <label for="capacity">Capacity</label>
+    <input name="capacity" id="capacity" type="number" required>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

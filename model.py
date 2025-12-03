@@ -184,7 +184,7 @@ def get_player_stats(id,i = 0): # dineis player id kai posa 10 thes na skipareis
                 return tuples
 
 
-def get_match_stats(id,i = 0): # 
+def get_match_stats(id,offset = 0): # 
     with get_connection() as con:
             with con.cursor() as cur:
                 sql = '''SELECT pt.shirt_num, p.last_name, e.name, ec.game_time, t.name
@@ -200,7 +200,7 @@ def get_match_stats(id,i = 0): #
                             WHERE ec.match_id = %s
                             ORDER BY ec.game_time, ec.event_id
                             LIMIT 10 OFFSET %s'''
-                cur.execute(sql,(id,i*10))                
+                cur.execute(sql,(id,offset*10))                
                 tuples = cur.fetchall()
                 return tuples
 
@@ -320,3 +320,5 @@ def calculate_standings_for_phase(phase_id):
         team_stats['wins'] = int(team_stats['wins'])
         team_stats['losses'] = int(team_stats['losses'])
     return standings
+
+

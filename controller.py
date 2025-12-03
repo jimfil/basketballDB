@@ -88,6 +88,23 @@ def cmd_create_team():
     create_team(team_name)
     print_team_creation_success(team_name)
 
+def cmd_create_player_for_team():
+    """Controller function to create a player and assign them to a team."""
+    print("First, select the team for the new player.")
+    team_id = view_teams()
+    if not team_id:
+        print_operation_cancelled()
+        return
+
+    player_info = get_player_info_input()
+    if not player_info:
+        print_operation_cancelled()
+        return
+
+    player_info.update({"team_id": team_id, "speciality": "Player"})
+    create_player(player_info) # This is the function from model.py
+    print_player_creation_success(player_info['first_name'], player_info['last_name'])
+
 def find_player_shot_percentage(player_id, shot_type, match_id=None):
     stats = get_player_shot_stats(player_id, shot_type, match_id)
     made = stats.get(f'{shot_type} Made', 0)
@@ -161,20 +178,40 @@ def calculate_standings(phase_id):
             standings[away_team_id]['wins'] += 1
 
     return sorted(standings.values(), key=lambda x: x['wins'], reverse=True)
+
+def creation_menu():
+    """Handles the sub-menu for creating teams and players."""
+    while True:
+        choice = get_menu_choice(
+            "--- Creation Menu ---",
+            {
+                "1": "Create a new team",
+                "2": "Create a player for a team",
+                "3": "Not Implemented",
+                "4": "Back to Team Menu"
+            }
+        )
+        if choice == "1":
+            cmd_create_team()
+        elif choice == "2":
+            cmd_create_player_for_team()
+        elif choice == "3":
+            print("This feature is not yet implemented.")
+        elif choice == "4":
+            return
+
 def team_menu():
     while True:
         choice = get_menu_choice(
             "--- Team Management ---",
-            {"1": "View Teams", "2": "Create Team", "3": "Back to Main Menu"}
+            {"1": "Creation Menu", "2": "View Teams", "3": "Back to Main Menu"}
         )
-        index = int(choice)
-
-        if index == 1:
+        if choice == "1":
+            creation_menu()
+        elif choice == "2":
             view_teams()
-        elif index == 2:
-            cmd_create_team()
-        elif index == 3:
-            return  
+        elif choice == "3":
+            return
 
 def get_year():
     giwrgos = get_seasons()

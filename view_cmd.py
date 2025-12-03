@@ -79,7 +79,7 @@ def display_teams(teams):
     print("--- Team List ---")
     print(f"{'ID':<10}{'Name'}")
     for team in teams:
-        print(f"{team[0]:<10}{team[1]}")
+        print(f"{team["id"]:<10}{team["name"]}")
 
 def display_players_paginated(players):
     """Displays a paginated list of players."""
@@ -106,6 +106,25 @@ def display_matches_for_team(team_name, matches):
 
 
 def get_year_input(): return input("Please input the League's Year, or 'q' to go back:")
+
+def get_player_info_input():
+    """Prompts user for new player details and returns them as a dict."""
+    print("\nEnter new player details (leave first name blank to cancel):")
+    first_name = input("First Name: ").strip()
+    if not first_name:
+        return None
+    last_name = input("Last Name: ").strip()
+    while not last_name:
+        print("Last name cannot be empty.")
+        last_name = input("Last Name: ").strip()
+    
+    shirt_num = input("Shirt Number: ").strip()
+    while not shirt_num.isdigit():
+        print("Shirt number must be a valid number.")
+        shirt_num = input("Shirt Number: ").strip()
+
+    return {"first_name": first_name, "last_name": last_name, "shirt_num": int(shirt_num)}
+
 def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
 
@@ -115,5 +134,6 @@ def print_no_more_found(example):print(f"No more {example} found.")
 def print_no_group_phase_found():print("No group phase found for the selected season.")
 def print_no_knockout_rounds_found():print("No rounds found for the knock out phase.")
 def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
+def print_player_creation_success(first_name, last_name): print(f"Player '{first_name} {last_name}' created successfully.")
 def print_operation_cancelled(): print("Operation cancelled.")
 def invalid_input():print("Invalid input. Please try again.")

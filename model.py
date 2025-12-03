@@ -35,6 +35,15 @@ def query(sql, params=()):
             return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
     
 
+def get_persons(limit=0):
+    sql = "SELECT id, first_name, last_name FROM person"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s"
+        params.append(limit)
+    
+    return query(sql, params)
+
 def get_players(team,offset = 0): # dineis player id kai posa 10 thes na skipareis
     with get_connection() as con:
             with con.cursor() as cur:
@@ -50,17 +59,13 @@ def get_players(team,offset = 0): # dineis player id kai posa 10 thes na skipare
             
 
 def get_teams(offset=0, limit=10):
-    with get_connection() as con:
-        with con.cursor() as cur:
-            sql = "SELECT id, name FROM team"
-            params = []
-            if limit != 0:
-                sql += " LIMIT %s OFFSET %s"
-                params.extend([limit, offset * limit])
-            
-            cur.execute(sql, params)
-            tuples = cur.fetchall()
-            return tuples
+    sql = "SELECT id, name FROM team"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s OFFSET %s"
+        params.extend([limit, offset * limit])
+    
+    return query(sql, params)
             
 def get_matches():
     return query("SELECT * FROM `match`;")
@@ -263,6 +268,15 @@ def get_scores(match_id):
 def get_phases_by_season(year):
     return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
 
+def get_phases(limit=0):
+    sql = "SELECT id, name FROM phase"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s"
+        params.append(limit)
+    
+    return query(sql, params)
+
 def get_matches_by_phase(phase_id):
     matches_sql = """
         SELECT m.id as match_id, m.home_team_id, m.away_team_id, m.match_date, m.status 
@@ -272,6 +286,24 @@ def get_matches_by_phase(phase_id):
     """
     matches = query(matches_sql, (phase_id,))
     return matches
+
+def get_rounds(limit=0):
+    sql = "SELECT id, name FROM round"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s"
+        params.append(limit)
+    
+    return query(sql, params)
+
+def get_stadiums(limit=0):
+    sql = "SELECT id, name FROM stadium"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s"
+        params.append(limit)
+    
+    return query(sql, params)
 
 def get_rounds_by_phase(phase_id):
     return query("SELECT * FROM Round WHERE phase_id = %s ORDER BY id", (phase_id,))

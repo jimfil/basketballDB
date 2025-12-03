@@ -17,7 +17,6 @@ bp = Blueprint("explorer", __name__, url_prefix="/explorer")
 
 
 @bp.route("/")
-@login_required
 def index():
     season_year = request.args.get("season_year")
     phase_id = request.args.get("phase_id")
@@ -48,7 +47,6 @@ def index():
 
 
 @bp.route("/match/<int:match_id>")
-@login_required
 def match_details(match_id):
     match = get_match(match_id)
     players = get_players_in_match(match_id)

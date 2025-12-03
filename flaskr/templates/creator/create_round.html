@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Round{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="name">Round Name</label>
+    <input name="name" id="name" required>
+    <label for="phase_id">Phase</label>
+    <select name="phase_id" id="phase_id" required>
+      {% for phase in phases %}
+        <option value="{{ phase.id }}">{{ phase.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

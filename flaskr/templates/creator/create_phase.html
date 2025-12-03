@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Phase{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="name">Phase Name</label>
+    <input name="name" id="name" required>
+    <label for="season_id">Season</label>
+    <select name="season_id" id="season_id" required>
+      {% for season in seasons %}
+        <option value="{{ season.id }}">{{ season.year }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

@@ -7,13 +7,9 @@ from basketballDB.model import (
     get_player_stats,
     get_matches,
     get_match_stats,
-    create_team,
     get_matches_by_team,
     get_scores,
     get_player_shot_stats,
-    create_season,
-    create_player,
-    get_person_attributes,
 )
 
 bp = Blueprint("basketball", __name__, url_prefix="/basketball")
@@ -62,16 +58,7 @@ def match_details(id):
     return render_template("basketball/match_details.html", stats=stats, scores=scores)
 
 
-@bp.route("/team/create", methods=("GET", "POST"))
-@login_required
-def create_team_route():
-    """Create a new team."""
-    if request.method == "POST":
-        team_name = request.form["team_name"]
-        if team_name:
-            create_team(team_name)
-            return redirect(url_for("basketball.index", offset=0))
-    return render_template("basketball/create_team.html")
+
 
 
 @bp.route("/team/<int:team_id>/matches")
@@ -119,28 +106,7 @@ def player_shot_percentage(player_id):
     )
 
 
-@bp.route("/season/create", methods=("GET", "POST"))
-@login_required
-def create_season_route():
-    """Create a new season."""
-    if request.method == "POST":
-        year = request.form["year"]
-        if year:
-            create_season(year)
-            return redirect(url_for("explorer.index"))
-    return render_template("basketball/create_season.html")
 
 
-@bp.route("/player/create", methods=("GET", "POST"))
-@login_required
-def create_player_route():
-    """Create a new player."""
-    if request.method == "POST":
-        player_data = request.form.to_dict()
-        create_player(player_data)
-        return redirect(url_for("basketball.index", offset=0))
-    
-    person_attributes = get_person_attributes()
-    # Limit to 1000 teams to avoid performance issues with a large number of teams
-    teams = get_teams(limit=1000)
-    return render_template("basketball/create_player.html", person_attributes=person_attributes, teams=teams)
+
+

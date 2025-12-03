@@ -18,11 +18,11 @@
     <tbody>
       {% for team in teams %}
         <tr>
-          <td>{{ team[0] }}</td>
-          <td>{{ team[1] }}</td>
+          <td>{{ team.id }}</td>
+          <td>{{ team.name }}</td>
           <td>
-            <a href="{{ url_for('basketball.team_matches', team_id=team[0]) }}">View Matches</a>
-            <a href="{{ url_for('basketball.team_players', team_id=team[0]) }}">View Players</a>
+            <a href="{{ url_for('basketball.team_matches', team_id=team.id) }}">View Matches</a>
+            <a href="{{ url_for('basketball.team_players', team_id=team.id) }}">View Players</a>
           </td>
         </tr>
       {% endfor %}

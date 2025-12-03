@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Team-Stadium Association{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="team_id">Team</label>
+    <select name="team_id" id="team_id" required>
+      {% for team in teams %}
+        <option value="{{ team.id }}">{{ team.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="stadium_id">Stadium</label>
+    <select name="stadium_id" id="stadium_id" required>
+      {% for stadium in stadiums %}
+        <option value="{{ stadium.id }}">{{ stadium.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="round_id">Round</label>
+    <select name="round_id" id="round_id" required>
+      {% for round in rounds %}
+        <option value="{{ round.id }}">{{ round.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

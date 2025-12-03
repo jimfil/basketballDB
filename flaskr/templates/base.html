@@ -7,9 +7,7 @@
     <li><a href="{{ url_for('basketball.index', offset=0) }}">Basketball</a></li>
     <li><a href="{{ url_for('explorer.index') }}">Explorer</a></li>
     {% if g.user %}
-      <li><a href="{{ url_for('basketball.create_team_route') }}">Create Team</a></li>
-      <li><a href="{{ url_for('basketball.create_season_route') }}">Create Season</a></li>
-      <li><a href="{{ url_for('basketball.create_player_route') }}">Create Player</a></li>
+      <li><a href="{{ url_for('creator.index') }}">Creator</a></li>
       <li><span>{{ g.user['username'] }}</span></li>
       <li><a href="{{ url_for('auth.logout') }}">Log Out</a></li>
     {% else %}

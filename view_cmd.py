@@ -1,67 +1,20 @@
-def display_main_menu():
-    print("Press one of the following options:")
-    print("1: Team Menu")
-    print("2: View League")
-    print("3: Stats")
-    print("4: Exit")
-    valid_answers = ["1", "2", "3", "4"] 
-    
-    answer = input("Awaiting Response: ")
-    while answer not in valid_answers:
-        print("Please Input a Valid Number (1-4)")
-        answer = input("Awaiting Response: ")
-    return answer
+def get_menu_choice(title, options):
+    """Generic function to display a menu and get a valid choice."""
+    print(f"\n{title}")
+    for key, value in options.items():
+        print(f"{key}: {value}")
 
-def display_team_menu(): 
-    """Displays the team management menu and gets user input."""
-    print("\n--- Team Management ---")
-    print("1: View Teams")
-    print("2: Create Team")
-    print("3: Back to Main Menu")
-    valid_answers = ["1", "2", "3"]
-    answer = input("Awaiting Response: ")
-    while answer not in valid_answers:
-        print("Please Input a Valid Number (1-3)")
-        answer = input("Awaiting Response: ")
-    return answer
+    valid_answers = options.keys()
+    prompt = f"Please Input a Valid Number ({list(valid_answers)[0]}-{list(valid_answers)[-1]})"
 
-def display_stats_menu():
-    print("What stats would you like to view?")
-    print("1: Player Stats")
-    print("2: Match Stats")
-    print("3: Shot Analysis")
-    print("4: Back")
-    valid_answers = ["1", "2", "3", "4"]
-    answer = input("Awaiting Response: ")
+    answer = input("Awaiting Response: ").strip()
     while answer not in valid_answers:
-        print("Please Input a Valid Number (1-4)")
+        print(prompt)
         answer = input("Awaiting Response: ")
     return answer
 
 def display_shot_percentage_menu():
-    print("1: Free Throws")
-    print("2: 2 Point Shoots")
-    print("3: 3 Point Shoots")
-    print("4: Back to Main Menu")
-    valid_answers = ["1", "2", "3", "4"]
-    answer = input("Awaiting Response: ")
-    while answer not in valid_answers:
-        print("Please Input a Valid Number (1-4)")
-        answer = input("Awaiting Response: ")
-    return answer
-
-def display_league_menu():
-    print("--- League Menu ---")
-    print("1: View Standings (Group Stage)")
-    print("2: View Rounds in the Knockout Stage")
-    print("3: Change Season")
-    print("4: Back")
-    valid_answers = ["1", "2", "3","4"]
-    answer = input("Awaiting Response: ")
-    while answer not in valid_answers:
-        print("Please Input a Valid Number (1-4)")
-        answer = input("Awaiting Response: ")
-    return answer
+    return get_menu_choice("Select Shot Type", {"1": "Free Throws", "2": "2 Point Shoots", "3": "3 Point Shoots", "4": "Back"})
 
 def display_years(years):
     print("Seasons:")
@@ -82,31 +35,25 @@ def display_phases(phases):
         print(f"{p['phase_id']}: {p_name} (ID: {p['id']})")
     return input("Enter Phase ID: ")
 
-def display_player_stats(page_num, stats):
+def display_player_stats(stats):
     """Displays a formatted page of player stats."""
-    print(f"\nPage {page_num}\t")
     print(f"{'Game':<8}{'Event Made':<28}{'Time'}")
     if not stats:
         print("No more stats found for this Player.")
         return
     for row in stats:
         match_id, event_name, game_time = row
-        print(f"{match_id:<8}{event_name:<28}{str(game_time)}")
-    return input("\nPress [Enter] for more, or type 'q' to return to Stats menu: ")    
+        print(f"{match_id:<8}{event_name:<28}{str(game_time)}") 
 
-
-def display_match_stats(page_num, stats):
+def display_match_stats(stats):
     """Displays a formatted page of match events."""
-    print(f"\nPage {page_num}\t")
     print(f"{'Team:':<24}{'Number Shirt':<15}{'Player':<20}{'Event Made':<28}{'Time'}")
     if not stats:
         print("No more events found for this Match.")
         return
     for row in stats:
         shirt_number, last_name, event_name, game_time, team_name = row
-        print(f"{team_name:<24}{shirt_number:<15}{last_name:<20}{event_name:<28}{str(game_time)}")
-    
-    return input("\nPress [Enter] for more, or type 'q' to return to Stats menu: ")    
+        print(f"{team_name:<24}{shirt_number:<15}{last_name:<20}{event_name:<28}{str(game_time)}") 
 
 def display_shot_analysis(analysis_data):
     """Displays the analysis of shot percentages."""
@@ -128,16 +75,11 @@ def display_match_score(match_id, scores):
 def display_teams(teams):
     """Displays a list of teams in a formatted way."""
     if not teams:
-        print("End of teams list.")
-        return 'q'
-    
+        return
     print("--- Team List ---")
     print(f"{'ID':<10}{'Name'}")
     for team in teams:
         print(f"{team[0]:<10}{team[1]}")
-    return input("\nPress [Enter] for next page, or 'q' to quit: ").strip()
-
-
 
 def display_players_paginated(players):
     """Displays a paginated list of players."""
@@ -161,15 +103,17 @@ def display_matches_for_team(team_name, matches):
     print("-" * 55)
     for match in matches:
         print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_id']:<15}{match['away_team_id']}")
-    
-    return input("\nPress [Enter] for next page, or 'q' to quit: ").strip()
 
 
 def get_year_input(): return input("Please input the League's Year, or 'q' to go back:")
+def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
 
         
-def print_select_from_list(example):print(f"Please select a {example} from the list below.")
-def print_no_more_found(example):print(f"No more {example} found.Exiting...")
+def print_select_from_list(example):print(f"\nPlease select a {example} from the list below.")
+def print_no_more_found(example):print(f"No more {example} found.")
+def print_no_group_phase_found():print("No group phase found for the selected season.")
+def print_no_knockout_rounds_found():print("No rounds found for the knock out phase.")
+def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
+def print_operation_cancelled(): print("Operation cancelled.")
 def invalid_input():print("Invalid input. Please try again.")
-

@@ -39,10 +39,12 @@ def create_app(test_config=None):
     from . import auth
     from . import basketball
     from . import explorer
+    from . import creator
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(basketball.bp)
     app.register_blueprint(explorer.bp)
+    app.register_blueprint(creator.bp)
 
     @app.route("/")
     def index():

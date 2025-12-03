@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Creator{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <ul>
+    <li><a href="{{ url_for('creator.create_season_route') }}">Create Season</a></li>
+    <li><a href="{{ url_for('creator.create_team_route') }}">Create Team</a></li>
+    <li><a href="{{ url_for('creator.create_stadium_route') }}">Create Stadium</a></li>
+    <li><a href="{{ url_for('creator.create_person_route') }}">Create Person</a></li>
+    <li><a href="{{ url_for('creator.create_referee_route') }}">Create Referee</a></li>
+    <li><a href="{{ url_for('creator.create_event_route') }}">Create Event</a></li>
+    <li><a href="{{ url_for('creator.create_phase_route') }}">Create Phase</a></li>
+  </ul>
+{% endblock %}

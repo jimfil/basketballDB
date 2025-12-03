@@ -104,6 +104,60 @@ def get_players_in_match(match_id):
     return home_players + away_players
 
 
+def create_season(year):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO Season (year) VALUES (%s);",  (year,))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma
+
+def create_stadium(name, capacity):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO Stadium (name, capacity) VALUES (%s, %s);",  (name, capacity))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return
+
+def create_person(first_name, last_name, speciality):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);",  (first_name, last_name, speciality))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return
+
+def create_referee(first_name, last_name):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO referee (first_name, last_name) VALUES (%s, %s);",  (first_name, last_name))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return
+
+def create_event(name, type, subtype):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO event (name, type, subtype) VALUES (%s, %s, %s);",  (name, type, subtype))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return
+
+def create_phase(year, name):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO phase (year, name) VALUES (%s, %s);",  (year, name))
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return
+
 def create_team(name):
     with get_connection() as con:
         cur = con.cursor()

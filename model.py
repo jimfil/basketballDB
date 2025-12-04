@@ -79,7 +79,18 @@ def get_match(match_id):
 
 def get_matches_by_team(team_id ,offset):
     return (query("SELECT name FROM Team WHERE id = %s;", (team_id,)), #onoma omadas
-            query("SELECT * FROM `Match` WHERE home_team_id = %s OR away_team_id = %s ORDER BY match_date DESC LIMIT 10 OFFSET %s;", (team_id, team_id, offset*10))) #agwnes
+            query("""
+                SELECT
+                    m.id, m.match_date,
+                    ht.name AS home_team_name,
+                    at.name AS away_team_name
+                FROM `Match` m
+                JOIN `Team` ht ON m.home_team_id = ht.id
+                JOIN `Team` at ON m.away_team_id = at.id
+                WHERE m.home_team_id = %s OR m.away_team_id = %s
+                ORDER BY m.match_date DESC
+                LIMIT 10 OFFSET %s;
+            """, (team_id, team_id, offset*10))) #agwnes
 
 def get_referees_in_match(match_id):
     return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = referee.id WHERE match_id = %s;", (match_id,))
@@ -394,6 +405,39 @@ def calculate_standings_for_phase(phase_id):
         team_stats['losses'] = int(team_stats['losses'])
     return standings        
 
+def get_all_matches_with_names(offset=0, limit=10):
+    """Fetches all matches, paginated, with team names, ordered by newest first."""
+    sql = """
+        WITH MatchScores AS (
+            SELECT
+                ec.match_id,
+                SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS home_score,
+                SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS away_score
+            FROM Event_Creation ec
+            JOIN `Match` m ON ec.match_id = m.id
+            JOIN Event e ON ec.event_id = e.id
+            JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (m.home_team_id, m.away_team_id)
+            GROUP BY ec.match_id
+        )
+        SELECT
+            m.id, m.match_date, m.status,
+            ht.name AS home_team_name,
+            at.name AS away_team_name,
+            ms.home_score,
+            ms.away_score
+        FROM `Match` m
+        JOIN `Team` ht ON m.home_team_id = ht.id
+        JOIN `Team` at ON m.away_team_id = at.id
+        LEFT JOIN MatchScores ms ON m.id = ms.match_id
+        ORDER BY m.match_date DESC
+        LIMIT %s OFFSET %s;
+    """
+    return query(sql, (limit, offset * limit))
+
 def get_scores(match_id):
     """Calculates the final score for a given match."""
     sql = """
@@ -522,14 +566,9 @@ def delete_player(player_id):
         with get_connection() as con:
             con.begin() # Start a transaction
             with con.cursor() as cur:
-                # 1. Check if the player has any events. If so, we cannot delete them.
-                cur.execute("SELECT 1 FROM Event_Creation WHERE person_id = %s LIMIT 1", (player_id,))
-                if cur.fetchone():
-                    return False # Player has events, deletion is not allowed to preserve history.
-
-                # 2. Delete from child tables that don't affect historical stats (like team assignments)
+                # 1. Delete from child tables first (Event_Creation is handled by ON DELETE CASCADE)
                 cur.execute("DELETE FROM Person_Team WHERE person_id = %s", (player_id,))
-                # 3. Finally, delete from the parent table
+                # 2. Finally, delete from the parent table
                 cur.execute("DELETE FROM Person WHERE id = %s", (player_id,))
             con.commit() # Commit all changes if successful
             return True
@@ -571,3 +610,10 @@ def get_player_details(player_id):
     """
     result = query(sql, (player_id,))
     return result[0] if result else None
+
+
+def create_match(match_data):
+    """Inserts a new match into the Match table and returns its ID."""
+    sql = """INSERT INTO `Match` (home_team_id, away_team_id, round_id, match_date, status)
+             VALUES (%s, %s, %s, %s, %s)"""
+    return _execute_insert_and_get_id(sql, (match_data['home_team_id'], match_data['away_team_id'], match_data['round_id'], match_data['match_date'], match_data['status']))

@@ -38,21 +38,44 @@ def handle_pagination(data_fetcher, display_function, *args):
             return int(user_input)
         invalid_input()
 
+def handle_pagination_view_only(data_fetcher, display_function, *args):
+    """
+    A simplified pagination handler for display-only purposes.
+    Allows paging through data without a selection prompt.
+    """
+    page = 0
+    while True:
+        results = data_fetcher(page, *args)
+        if not results:
+            print_no_more_found("items")
+            input("Press [Enter] to continue...")
+            return
+
+        display_function(results)
+        user_input = input("Press [Enter] for next page, or 'q' to quit: ").strip()
+
+        if user_input.lower() == 'q':
+            return
+        if user_input == '':
+            page += 1
+        else:
+            invalid_input()
+
 def find_playerstats(player_id):
     if not player_id:
         return # User quit selection
-    # The pagination for stats is display-only, no selection, so we keep its simple loop.
-    handle_pagination(lambda page: get_player_stats(player_id, offset=page), display_player_stats)
+    handle_pagination_view_only(lambda page: get_player_stats(player_id, offset=page), display_player_stats)
 
 def view_teams():
     """Controller to view all teams or a single team."""
     team_id = select_team_for_action()
     if team_id:
         print_player_list_header(team_id)
-        # This pagination is display-only, so we don't need to capture a selection.
-        # The inner handle_pagination will loop until the user quits.
-        handle_pagination(lambda page: get_players(team_id, offset=page), display_players_paginated)
+        handle_pagination_view_only(lambda page: get_players(team_id, offset=page), display_players_paginated)
 
+def cmd_view_all_matches():
+    """Controller to view all matches, paginated."""
+    handle_pagination_view_only(lambda page: get_all_matches_with_names(offset=page), display_all_matches)
 
 def find_matches_for_team():
     team_id = select_team_for_action()
@@ -75,7 +98,7 @@ def find_matches_for_team():
 def find_matchstats(match_id):
     if not match_id:
         return
-    handle_pagination(lambda page: get_match_stats(match_id, offset=page), display_match_stats)
+    handle_pagination_view_only(lambda page: get_match_stats(match_id, offset=page), display_match_stats)
 
 def select_player():
     team_id = select_team_for_action()
@@ -109,15 +132,25 @@ def cmd_create_season_with_phases():
     print_season_creation_success(year)
 
     # 2. Create Phases (Group Stage and Knockout)
-    create_phase(year, 1)  # phase_id 1 for Group Stage
+    group_stage_phase_id = create_phase(year, 1)  # phase_id 1 for Group Stage
     knockout_phase_id = create_phase(year, 2)  # phase_id 2 for Knockout
     print_phases_creation_success()
 
-    # 3. Create Rounds for the Knockout phase
+    # 3. Create Rounds for both phases
+    rounds_created = False
+    if group_stage_phase_id:
+        # Group stage has 5 rounds (for a 6-team group round-robin)
+        for round_num in range(1, 6):
+            create_round(round_num, group_stage_phase_id)
+        rounds_created = True
+
     if knockout_phase_id:
-        round_names = [1, 2, 3, 4]
-        for name in round_names:
-            create_round(name, knockout_phase_id)
+        # Knockout has 4 rounds (R16, QF, SF, Finals)
+        for round_num in range(1, 5):
+            create_round(round_num, knockout_phase_id)
+        rounds_created = True
+
+    if rounds_created:
         print_rounds_creation_success()
 
 def cmd_create_player_for_team():
@@ -194,10 +227,17 @@ def cmd_delete_player():
         print_operation_cancelled()
         return
     
-    if delete_player(player_id):
+    # Add confirmation step
+    confirmation_id_str = get_delete_confirmation_input("Player", player_id)
+    if not confirmation_id_str.isdigit() or int(confirmation_id_str) != player_id:
+        print_confirmation_failed()
+        return
+
+    # Proceed with deletion if confirmation is successful
+    if delete_player(player_id): # This now deletes the player and their events via CASCADE
         print_delete_success("Player", player_id)
     else:
-        print_delete_failed("Player", player_id, "Note: Players with recorded match events cannot be deleted.")
+        print_delete_failed("Player", player_id, "An unexpected database error occurred.")
 
 def cmd_delete_team():
     """Controller to delete a team."""
@@ -210,6 +250,75 @@ def cmd_delete_team():
         print_delete_success("Team", team_id)
     else:
         print_delete_failed("Team", team_id, "Note: Teams with existing matches cannot be deleted.")
+
+def cmd_create_match():
+    """Controller to guide the user through creating a new match step-by-step."""
+    from datetime import datetime
+    print_create_match_header()
+
+    # 1. Choose a Season
+    year = get_year()
+    if not year:
+        return print_operation_cancelled()
+
+    # 2. Choose a Phase
+    phases = get_phases_by_season(year)
+    if not phases:
+        return print_no_phases_found()
+
+    logical_phase_id = get_phase_selection(phases)
+    if logical_phase_id is None:
+        return print_operation_cancelled()
+    
+    # Find the database ID for the selected logical phase
+    phase_db_id = next((p['id'] for p in phases if p['phase_id'] == logical_phase_id), None)
+    if phase_db_id is None: # Should not happen if logic is correct
+        return print_operation_cancelled()
+
+    # 3. Choose a Round
+    rounds = get_rounds_by_phase(phase_db_id)
+    round_id = get_round_selection(rounds)
+    if not round_id:
+        return print_operation_cancelled()
+
+    # 4. Get Date and determine Status
+    match_date_str = get_match_date_input()
+    if not match_date_str:
+        return print_operation_cancelled()
+        
+    match_date_obj = datetime.strptime(match_date_str, '%Y-%m-%d').date()
+    status = 'Scheduled' if match_date_obj > datetime.now().date() else 'Completed'
+    print_status_set_to(status)
+
+    # 5. Choose Teams
+    print_select_home_team()
+    home_team_id = select_team_for_action()
+    if not home_team_id:
+        return print_operation_cancelled()
+
+    print_select_away_team()
+    while True:
+        away_team_id = select_team_for_action()
+        if not away_team_id:
+            print_operation_cancelled()
+            return
+        if away_team_id != home_team_id:
+            break  # Valid selection
+        print_invalid_team_selection()
+
+    # 6. Create the match
+    match_data = {
+        'home_team_id': home_team_id,
+        'away_team_id': away_team_id,
+        'round_id': round_id,
+        'match_date': match_date_str,
+        'status': status
+    }
+    new_match_id = create_match(match_data)
+    if new_match_id:
+        print_match_creation_success(new_match_id)
+    else:
+        print_creation_failed("match", f"between {home_team_id} and {away_team_id}")
 
 def select_team_for_action():
     """
@@ -266,21 +375,16 @@ def calculate_standings(phase_id):
     else:
         return calculate_standings_for_phase(phase_id)
 
-
-def management_menu():
-    """Handles the sub-menu for creating and updating entities."""
+def create_menu():
+    """Handles the sub-menu for creating entities."""
     while True:
         choice = get_menu_choice(
-            "--- Management Menu ---",
+            "--- Create Menu ---",
             {
                 "1": "Create a new team",
                 "2": "Create a player for a team",
                 "3": "Create a new season",
-                "4": "Change Player Information",
-                "5": "Change Team Information",
-                "6": "Delete a Player",
-                "7": "Delete a Team",
-                "8": "Back to Main Menu"
+                "4": "Back"
             }
         )
         if choice == "1":
@@ -290,14 +394,84 @@ def management_menu():
         elif choice == "3":
             cmd_create_season_with_phases()
         elif choice == "4":
-            cmd_update_player_info()
-        elif choice == "5":
+            return
+
+def change_info_menu():
+    """Handles the sub-menu for changing information."""
+    while True:
+        choice = get_menu_choice(
+            "--- Change Information Menu ---",
+            {
+                "1": "Change Team Information",
+                "2": "Change Player Information",
+                "3": "Back"
+            }
+        )
+        if choice == "1":
             cmd_update_team_info()
-        elif choice == "6":
-            cmd_delete_player()
-        elif choice == "7":
+        elif choice == "2":
+            cmd_update_player_info()
+        elif choice == "3":
+            return
+
+def delete_menu():
+    """Handles the sub-menu for deleting entities."""
+    while True:
+        choice = get_menu_choice(
+            "--- Delete Menu ---",
+            {
+                "1": "Delete a Team",
+                "2": "Delete a Player",
+                "3": "Back"
+            }
+        )
+        if choice == "1":
             cmd_delete_team()
-        elif choice == "8":
+        elif choice == "2":
+            cmd_delete_player()
+        elif choice == "3":
+            return
+
+def matches_events_menu():
+    """Handles the sub-menu for creating/updating matches and events."""
+    while True:
+        choice = get_menu_choice(
+            "--- Create/Update Matches/Events Menu ---",
+            {
+                "1": "Create a new match",
+                "2": "Back"
+            }
+        )
+        if choice == "1":
+            cmd_create_match()
+        elif choice == "2":
+            return
+
+def management_menu():
+    """Handles the main management menu and its sub-menus."""
+    while True:
+        choice = get_menu_choice(
+            "--- Management Menu ---",
+            {
+                "1": "Create Team/Players/Season",
+                "2": "Change Information Menu",
+                "3": "Create/Update Matches/Events",
+                "4": "Delete Menu",
+                "5": "Force Delete Menu",
+                "6": "Back to Main Menu"
+            }
+        )
+        if choice == "1":
+            create_menu()
+        elif choice == "2":
+            change_info_menu()
+        elif choice == "3":
+            matches_events_menu()
+        elif choice == "4":
+            delete_menu()
+        elif choice == "5":
+            print("This feature is not yet implemented.")
+        elif choice == "6":
             return
 
 def get_year():
@@ -316,13 +490,15 @@ def view_menu():
     while True:
         choice = get_menu_choice(
             "--- View Menu ---",
-            {"1": "View League", "2": "View Teams", "3": "Back to Main Menu"}
+            {"1": "View League by Season", "2": "View Teams", "3": "View All Matches", "4": "Back to Main Menu"}
         )
         if choice == "1":
             league_menu()
         elif choice == "2":
             view_teams() # This now shows teams and then players for the selected team.
         elif choice == "3":
+            cmd_view_all_matches()
+        elif choice == "4":
             return
     
 def league_menu():

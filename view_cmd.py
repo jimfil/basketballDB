@@ -46,12 +46,45 @@ def display_standings(standings_list, is_group_stage=False):
 
     input("\nPress [Enter] to continue...")
 
-def display_phases(phases):
+def get_phase_selection(phases):
+    """Displays phases and prompts the user to select a logical phase ID (1 or 2)."""
     print("\nSelect a Phase:")
+    valid_ids = []
     for p in phases:
         p_name = "Group Stage" if p['phase_id'] == 1 else "Finals/Knockout"
         print(f"{p['phase_id']}: {p_name} (ID: {p['id']})")
-    return input("Enter Phase ID: ")
+        valid_ids.append(str(p['phase_id']))
+
+    while True:
+        choice = input("Enter Phase Number (1 or 2), or 'q' to quit: ").strip()
+        if choice.lower() == 'q':
+            return None
+        if choice in valid_ids:
+            return int(choice)
+        invalid_input()
+
+def get_round_selection(rounds):
+    """Displays rounds for a phase and gets a valid logical round_id selection."""
+    if not rounds:
+        print("No rounds found for this phase.")
+        return None
+    
+    print("\nSelect a Round:")
+    valid_round_ids = []
+    for r in rounds:
+        print(f"Round Number: {r['round_id']} (ID: {r['id']})")
+        valid_round_ids.append(str(r['round_id']))
+    
+    while True:
+        choice = input(f"Enter Round Number ({', '.join(valid_round_ids)}), or 'q' to quit: ").strip()
+        if choice.lower() == 'q':
+            return None
+        if choice in valid_round_ids:
+            # Find the database ID for the chosen logical round ID
+            for r in rounds:
+                if str(r['round_id']) == choice:
+                    return r['id']
+        invalid_input()
 
 def display_player_stats(stats):
     """Displays a formatted page of player stats."""
@@ -115,10 +148,27 @@ def display_matches_for_team(team_name, matches):
         print("No matches found for this team.")
         return
 
-    print(f"{'ID':<10}{'Date':<15}{'Home Team ID':<15}{'Away Team ID'}")
-    print("-" * 55)
+    print(f"{'ID':<10}{'Date':<15}{'Home Team':<25}{'Away Team':<25}")
+    print("-" * 75)
     for match in matches:
-        print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_id']:<15}{match['away_team_id']}")
+        print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_name']:<25}{match['away_team_name']:<25}")
+
+def display_all_matches(matches):
+    """Displays a paginated list of all matches."""
+    if not matches:
+        print("No more matches found.")
+        return
+
+    print(f"\n--- All Matches ---")
+    print(f"{'ID':<10}{'Date':<15}{'Status':<12}{'Home Team':<25}{'Away Team':<25}{'Score'}")
+    print("-" * 100)
+    for match in matches:
+        score_str = ""
+        # Check if score data is present and the match is completed
+        if match.get('home_score') is not None and match.get('away_score') is not None and match['status'] == 'Completed':
+            score_str = f"{int(match['home_score'])}-{int(match['away_score'])}"
+
+        print(f"{match['id']:<10}{str(match['match_date']):<15}{match['status']:<12}{match['home_team_name']:<25}{match['away_team_name']:<25}{score_str}")
 
 
 def get_year_input(prompt="Please input the League's Year, or 'q' to go back:"):
@@ -142,6 +192,21 @@ def get_player_info_input():
         shirt_num = input("Shirt Number: ").strip()
 
     return {"first_name": first_name, "last_name": last_name, "shirt_num": int(shirt_num)}
+
+def get_match_date_input():
+    """Prompts user for a match date in YYYY-MM-DD format."""
+    from datetime import datetime
+    while True:
+        date_str = input("Enter the match date (YYYY-MM-DD): ").strip()
+        if date_str.lower() == 'q':
+            return None
+        try:
+            # Validate the date format and that it's a real date
+            datetime.strptime(date_str, '%Y-%m-%d')
+            return date_str
+        except ValueError:
+            print("Invalid date format. Please use YYYY-MM-DD.")
+
 
 def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
@@ -176,6 +241,12 @@ def get_updated_player_info_input(current_details):
             
     return changes
 
+def get_delete_confirmation_input(item_type, item_id):
+    """Asks for confirmation by re-typing the ID."""
+    print(f"\nWARNING: This action is irreversible and will delete the {item_type} and all associated data (like game events).")
+    confirmation_id = input(f"To confirm, please re-enter the {item_type} ID ({item_id}): ").strip()
+    return confirmation_id
+
         
 def print_player_list_header(team_id): print(f"\n--- Players for Team ID: {team_id} ---")
 def print_select_team_for_player(): print("First, select the team for the new player.")
@@ -189,6 +260,7 @@ def print_season_creation_success(year): print(f"Season '{year}' created success
 def print_phases_creation_success(): print("Group Stage and Knockout phases created.")
 def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
 def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
+def print_match_creation_success(match_id): print(f"Match created successfully with ID: {match_id}")
 def print_player_creation_success(first_name, last_name): print(f"Player '{first_name} {last_name}' created successfully.")
 def print_update_success(item): print(f"Successfully updated {item}.")
 def print_update_failed(item): print(f"Failed to update {item}. The value may be a duplicate or a database error occurred.")
@@ -197,5 +269,12 @@ def print_delete_failed(item_type, item_id, note=None):
     message = f"Failed to delete {item_type} with ID {item_id}."
     if note: message += f" {note}"
     print(message)
+def print_confirmation_failed(): print("Confirmation failed. The entered ID did not match. Deletion cancelled.")
 def print_operation_cancelled(): print("Operation cancelled.")
+def print_create_match_header(): print("\n--- Create a New Match ---")
+def print_select_home_team(): print("\nFirst, select the HOME team.")
+def print_select_away_team(): print("\nNext, select the AWAY team.")
+def print_status_set_to(status): print(f"Match status will be set to: {status}")
+def print_invalid_team_selection(): print("The away team cannot be the same as the home team. Please select a different team.")
+def print_no_phases_found(): print("No phases found for this season. Please create them first.")
 def invalid_input():print("Invalid input. Please try again.")

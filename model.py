@@ -93,33 +93,64 @@ def get_matches_by_team(team_id ,offset):
             """, (team_id, team_id, offset*10))) #agwnes
 
 def get_referees_in_match(match_id):
-    return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = referee.id WHERE match_id = %s;", (match_id,))
+    return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = r.id WHERE match_id = %s;", (match_id,))
 
+def get_referees(offset=0, limit=10):
+    """Fetches referees, paginated."""
+    sql = "SELECT id, first_name, last_name FROM Referee ORDER BY last_name, first_name LIMIT %s OFFSET %s"
+    return query(sql, (limit, offset * limit))
 
+def link_referee_to_match(match_id, referee_id):
+    """Links a referee to a match in the Match_Referee table."""
+    sql = "INSERT INTO Match_Referee (match_id, referee_id) VALUES (%s, %s)"
+    return _execute_cud(sql, (match_id, referee_id))
 
-def get_players_in_match(match_id):
-    match = get_match(match_id)
-    if not match:
-        return []
-    
-    match = match[0]
-    home_team_id = match['home_team_id']
-    away_team_id = match['away_team_id']
-    
-    home_players = query("""
-        SELECT p.* FROM Person p
-        JOIN Person_Team pt ON p.id = pt.person_id
-        WHERE pt.team_id = %s;
-    """, (home_team_id,))
-    
-    away_players = query("""
-        SELECT p.* FROM Person p
-        JOIN Person_Team pt ON p.id = pt.person_id
-        WHERE pt.team_id = %s;
-    """, (away_team_id,))
-    
-    return home_players + away_players
+def get_unassigned_referees(match_id, offset=0, limit=10):
+    """Fetches referees not already assigned to a specific match, paginated."""
+    sql = """
+        SELECT id, first_name, last_name
+        FROM Referee
+        WHERE id NOT IN (SELECT referee_id FROM Match_Referee WHERE match_id = %s)
+        ORDER BY last_name, first_name
+        LIMIT %s OFFSET %s
+    """
+    return query(sql, (match_id, limit, offset * limit))
 
+def get_referee_details(referee_id):
+    """Fetches details for a single referee."""
+    sql = "SELECT first_name, last_name FROM Referee WHERE id = %s"
+    result = query(sql, (referee_id,))
+    return result[0] if result else None
+
+def get_matches_for_referee(referee_id, offset=0, limit=10):
+    """Fetches all matches for a specific referee, with team names and scores."""
+    sql = """
+        WITH MatchScores AS (
+            SELECT
+                ec.match_id,
+                SUM(CASE WHEN pt.team_id = m.home_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS home_score,
+                SUM(CASE WHEN pt.team_id = m.away_team_id AND e.name LIKE '%%Made' THEN
+                    CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
+                    ELSE 0 END) AS away_score
+            FROM Event_Creation ec
+            JOIN `Match` m ON ec.match_id = m.id
+            JOIN Event e ON ec.event_id = e.id
+            JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (m.home_team_id, m.away_team_id)
+            GROUP BY ec.match_id
+        )
+        SELECT m.id, m.match_date, m.status, ht.name AS home_team_name, at.name AS away_team_name, ms.home_score, ms.away_score
+        FROM Match_Referee mr
+        JOIN `Match` m ON mr.match_id = m.id
+        JOIN `Team` ht ON m.home_team_id = ht.id
+        JOIN `Team` at ON m.away_team_id = at.id
+        LEFT JOIN MatchScores ms ON m.id = ms.match_id
+        WHERE mr.referee_id = %s
+        ORDER BY m.match_date DESC
+        LIMIT %s OFFSET %s;
+    """
+    return query(sql, (referee_id, limit, offset * limit))
 
 def _execute_cud(sql, params=()):
     """
@@ -133,7 +164,7 @@ def _execute_cud(sql, params=()):
                 con.commit()
                 return True
     except pymysql.Error:
-        # Catches IntegrityError (duplicates) and any other DB operational error.
+        # Catches any DB operational error.
         return False
 
 def _execute_insert_and_get_id(sql, params=()):
@@ -232,12 +263,8 @@ def update_player_shirt_number(player_id, new_shirt_number):
     return _execute_cud("UPDATE Person_Team SET shirt_num = %s WHERE person_id = %s", (new_shirt_number, player_id))
 
 def get_all_events():
-    with get_connection() as con:
-            with con.cursor() as cur:
-                cur.execute("SELECT name FROM event")
-                columns = cur.fetchall()
-                event_names = [name[0] for name in columns]
-                return event_names
+    """Fetches all possible event types with their IDs."""
+    return query("SELECT id, name FROM Event ORDER BY id")
 
 def get_player_stats(player_id, offset=0, limit=10):
     """Fetches paginated stats for a given player. Returns a list of dictionaries."""
@@ -252,7 +279,7 @@ def get_player_stats(player_id, offset=0, limit=10):
 
 def get_match_stats(match_id, offset=0, limit=10):
     """Fetches paginated events for a given match. Returns a list of dictionaries."""
-    sql = '''SELECT t.name as team_name, pt.shirt_num, p.last_name, e.name as event_name, ec.game_time
+    sql = '''SELECT ec.id as id, t.name as team_name, pt.shirt_num, p.last_name, e.name as event_name, ec.game_time
              FROM event_creation as ec
              JOIN event as e ON ec.event_id = e.id
              JOIN person as p ON ec.person_id = p.id
@@ -544,13 +571,13 @@ def create_player(player_data):
                 cur.execute(sql_person, list(person_data.values()))
                 person_id = cur.lastrowid
 
-            # Insert into Person_Team table
-            team_id = player_data.get('team_id')
-            shirt_num = player_data.get('shirt_num')
-            if team_id and shirt_num:
-                sql_person_team = "INSERT INTO Person_Team (person_id, team_id, shirt_num) VALUES (%s, %s, %s)"
-                with con.cursor() as cur2:
-                    cur2.execute(sql_person_team, (person_id, team_id, shirt_num))
+                # Insert into Person_Team table using the same cursor
+                team_id = player_data.get('team_id')
+                shirt_num = player_data.get('shirt_num')
+                if team_id and shirt_num is not None:
+                    sql_person_team = "INSERT INTO Person_Team (person_id, team_id, shirt_num) VALUES (%s, %s, %s)"
+                    cur.execute(sql_person_team, (person_id, team_id, shirt_num))
+
             con.commit() # Commit the transaction
             return True
     except pymysql.Error:
@@ -574,6 +601,23 @@ def delete_player(player_id):
             return True
     except pymysql.Error:
         return False # The 'with' block will automatically roll back the transaction on error
+
+def delete_referee(referee_id):
+    """
+    Deletes a referee and unlinks them from all matches in a transaction.
+    """
+    try:
+        with get_connection() as con:
+            con.begin() # Start a transaction
+            with con.cursor() as cur:
+                # 1. Unlink from all matches
+                cur.execute("DELETE FROM Match_Referee WHERE referee_id = %s", (referee_id,))
+                # 2. Delete the referee
+                cur.execute("DELETE FROM Referee WHERE id = %s", (referee_id,))
+            con.commit() # Commit all changes if successful
+            return True
+    except pymysql.Error:
+        return False
 
 def delete_team(team_id):
     """
@@ -617,3 +661,18 @@ def create_match(match_data):
     sql = """INSERT INTO `Match` (home_team_id, away_team_id, round_id, match_date, status)
              VALUES (%s, %s, %s, %s, %s)"""
     return _execute_insert_and_get_id(sql, (match_data['home_team_id'], match_data['away_team_id'], match_data['round_id'], match_data['match_date'], match_data['status']))
+
+def unlink_referee_from_match(match_id, referee_id):
+    """Unlinks a referee from a specific match."""
+    sql = "DELETE FROM Match_Referee WHERE match_id = %s AND referee_id = %s"
+    return _execute_cud(sql, (match_id, referee_id))
+
+def create_match_event(match_id, person_id, event_id, game_time):
+    """Inserts a new event into the Event_Creation table."""
+    sql = "INSERT INTO Event_Creation (match_id, person_id, event_id, game_time) VALUES (%s, %s, %s, %s)"
+    return _execute_cud(sql, (match_id, person_id, event_id, game_time))
+
+def delete_match_event(event_creation_id):
+    """Deletes a specific event instance from the Event_Creation table."""
+    sql = "DELETE FROM Event_Creation WHERE id = %s"
+    return _execute_cud(sql, (event_creation_id,))

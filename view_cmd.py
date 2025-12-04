@@ -1,20 +1,23 @@
-def get_menu_choice(title, options):
+def get_menu_choice(title, options, quit_text="Go Back"):
     """Generic function to display a menu and get a valid choice."""
     print(f"\n{title}")
     for key, value in options.items():
         print(f"{key}: {value}")
+    print(f"q: {quit_text}")
 
-    valid_answers = options.keys()
-    prompt = f"Please Input a Valid Number ({list(valid_answers)[0]}-{list(valid_answers)[-1]})"
+    valid_answers = list(options.keys())
+    prompt = f"Please Input a Valid Number ({valid_answers[0]}-{valid_answers[-1]})"
 
-    answer = input("Awaiting Response: ").strip()
-    while answer not in valid_answers:
+    while True:
+        answer = input("Awaiting Response: ").strip()
+        if answer.lower() == 'q':
+            return 'q'
+        if answer in valid_answers:
+            return answer
         print(prompt)
-        answer = input("Awaiting Response: ")
-    return answer
 
 def display_shot_percentage_menu():
-    return get_menu_choice("Select Shot Type", {"1": "Free Throws", "2": "2 Point Shoots", "3": "3 Point Shoots", "4": "Back"})
+    return get_menu_choice("Select Shot Type", {"1": "Free Throws", "2": "2 Point Shoots", "3": "3 Point Shoots"})
 
 def display_years(years):
     print("Seasons:")
@@ -97,12 +100,12 @@ def display_player_stats(stats):
 
 def display_match_stats(stats):
     """Displays a formatted page of match events."""
-    print(f"{'Team':<24}{'Shirt':<8}{'Player':<20}{'Event':<28}{'Time'}")
+    print(f"{'ID':<8}{'Team':<24}{'Shirt':<8}{'Player':<20}{'Event':<28}{'Time'}")
     if not stats:
         print("No more events found for this Match.")
         return
     for row in stats:
-        print(f"{row['team_name']:<24}{row['shirt_num']:<8}{row['last_name']:<20}{row['event_name']:<28}{str(row['game_time'])}") 
+        print(f"{row['id']:<8}{row['team_name']:<24}{row['shirt_num']:<8}{row['last_name']:<20}{row['event_name']:<28}{str(row['game_time'])}") 
 
 def display_shot_analysis(analysis_data):
     """Displays the analysis of shot percentages."""
@@ -141,6 +144,16 @@ def display_players_paginated(players):
         print(f"{player['id']:<10}{player['first_name']:<20}{player['last_name']:<20}{player['shirt_num']:<10}{player['speciality']:<20}")
     print("")
 
+def display_event_types(events):
+    """Displays a list of event types."""
+    if not events:
+        return
+    print("\n--- Event Types ---")
+    print(f"{'ID':<10}{'Name'}")
+    for event in events:
+        print(f"{event['id']:<10}{event['name']}")
+
+
 def display_matches_for_team(team_name, matches):
     """Displays a list of matches for a specific team."""
     print(f"\n--- Matches for {team_name[0]["name"]} ---")
@@ -152,6 +165,33 @@ def display_matches_for_team(team_name, matches):
     print("-" * 75)
     for match in matches:
         print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_name']:<25}{match['away_team_name']:<25}")
+
+def display_referees_paginated(referees):
+    """Displays a paginated list of referees."""
+    if not referees:
+        print("No more referees found.")
+        return
+
+    print(f"\n--- Referee List ---")
+    print(f"{'ID':<10}{'First Name':<20}{'Last Name':<20}")
+    for referee in referees:
+        print(f"{referee['id']:<10}{referee['first_name']:<20}{referee['last_name']:<20}")
+
+def display_matches_for_referee(referee_details, matches):
+    """Displays a list of matches for a specific referee."""
+    if not matches:
+        print("No more matches found for this referee.")
+        return
+
+    print(f"\n--- Matches for Referee: {referee_details['first_name']} {referee_details['last_name']} ---")
+    print(f"{'ID':<10}{'Date':<15}{'Status':<12}{'Home Team':<25}{'Away Team':<25}{'Score'}")
+    print("-" * 100)
+    for match in matches:
+        score_str = ""
+        if match.get('home_score') is not None and match.get('away_score') is not None and match['status'] == 'Completed':
+            score_str = f"{int(match['home_score'])}-{int(match['away_score'])}"
+
+        print(f"{match['id']:<10}{str(match['match_date']):<15}{match['status']:<12}{match['home_team_name']:<25}{match['away_team_name']:<25}{score_str}")
 
 def display_all_matches(matches):
     """Displays a paginated list of all matches."""
@@ -193,20 +233,55 @@ def get_player_info_input():
 
     return {"first_name": first_name, "last_name": last_name, "shirt_num": int(shirt_num)}
 
-def get_match_date_input():
+def get_referee_info_input():
+    """Prompts user for new referee details."""
+    print("\nEnter new referee details (leave first name blank to cancel):")
+    first_name = input("First Name: ").strip()
+    if not first_name:
+        return None
+    
+    last_name = input("Last Name: ").strip()
+    while not last_name:
+        print("Last name cannot be empty.")
+        last_name = input("Last Name: ").strip()
+        
+    return {"first_name": first_name, "last_name": last_name}
+
+
+def get_match_date_input(year=None):
     """Prompts user for a match date in YYYY-MM-DD format."""
     from datetime import datetime
     while True:
-        date_str = input("Enter the match date (YYYY-MM-DD): ").strip()
-        if date_str.lower() == 'q':
-            return None
+        if year:
+            prompt = f"Enter the match date for {year} (MM-DD), or 'q' to quit: "
+            date_input = input(prompt).strip()
+            if date_input.lower() == 'q':
+                return None
+            date_str = f"{year}-{date_input}"
+        else:
+            prompt = "Enter the match date (YYYY-MM-DD), or 'q' to quit: "
+            date_str = input(prompt).strip()
+            if date_str.lower() == 'q':
+                return None
         try:
-            # Validate the date format and that it's a real date
             datetime.strptime(date_str, '%Y-%m-%d')
             return date_str
         except ValueError:
-            print("Invalid date format. Please use YYYY-MM-DD.")
+            print("Invalid date format. Please use the correct format.")
 
+def get_game_time_input():
+    """Prompts user for a game time in MM:SS format."""
+    from datetime import datetime
+    while True:
+        time_str = input("Enter the game time (MM:SS), or 'q' to quit: ").strip()
+        if time_str.lower() == 'q':
+            return None
+        try:
+            # We parse it to validate, but will store it as a string for the DB which expects a timestamp-like format
+            datetime.strptime(time_str, '%M:%S')
+            return f"1970-01-01 00:{time_str}" # Format for DB timestamp
+        except ValueError:
+            print("Invalid time format. Please use MM:SS.")
 
 def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
@@ -241,6 +316,26 @@ def get_updated_player_info_input(current_details):
             
     return changes
 
+def get_updated_referee_info_input(current_details):
+    """
+    Prompts user for updated referee details, showing current values.
+    Pressing Enter keeps the current value.
+    Returns a dictionary of changed values.
+    """
+    print("\nEnter new referee details. Press [Enter] to keep the current value.")
+    
+    changes = {}
+    
+    new_first_name = input(f"First Name [{current_details['first_name']}]: ").strip()
+    if new_first_name and new_first_name != current_details['first_name']:
+        changes['first_name'] = new_first_name
+        
+    new_last_name = input(f"Last Name [{current_details['last_name']}]: ").strip()
+    if new_last_name and new_last_name != current_details['last_name']:
+        changes['last_name'] = new_last_name
+            
+    return changes
+
 def get_delete_confirmation_input(item_type, item_id):
     """Asks for confirmation by re-typing the ID."""
     print(f"\nWARNING: This action is irreversible and will delete the {item_type} and all associated data (like game events).")
@@ -260,6 +355,7 @@ def print_season_creation_success(year): print(f"Season '{year}' created success
 def print_phases_creation_success(): print("Group Stage and Knockout phases created.")
 def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
 def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
+def print_referee_creation_success(first_name, last_name): print(f"Referee '{first_name} {last_name}' created successfully.")
 def print_match_creation_success(match_id): print(f"Match created successfully with ID: {match_id}")
 def print_player_creation_success(first_name, last_name): print(f"Player '{first_name} {last_name}' created successfully.")
 def print_update_success(item): print(f"Successfully updated {item}.")
@@ -277,4 +373,8 @@ def print_select_away_team(): print("\nNext, select the AWAY team.")
 def print_status_set_to(status): print(f"Match status will be set to: {status}")
 def print_invalid_team_selection(): print("The away team cannot be the same as the home team. Please select a different team.")
 def print_no_phases_found(): print("No phases found for this season. Please create them first.")
+def print_link_success(item1, id1, item2, id2): print(f"Successfully linked {item1} {id1} to {item2} {id2}.")
+def print_unlink_success(item1, id1, item2, id2): print(f"Successfully unlinked {item1} {id1} from {item2} {id2}.")
+def print_event_creation_success(event_name, player_id, match_id): print(f"Successfully created event '{event_name}' for player {player_id} in match {match_id}.")
 def invalid_input():print("Invalid input. Please try again.")
+def print_welcome(): print("\n--->>Welcome to the BasketBall League<<---")

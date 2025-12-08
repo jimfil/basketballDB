@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Match-Referee Association{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="match_id">Match</label>
+    <select name="match_id" id="match_id">
+      {% for match in matches %}
+        <option value="{{ match.id }}">{{ match.id }}</option>
+      {% endfor %}
+    </select>
+    <label for="referee_id">Referee</label>
+    <select name="referee_id" id="referee_id">
+      {% for referee in referees %}
+        <option value="{{ referee.id }}">{{ referee.first_name }} {{ referee.last_name }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

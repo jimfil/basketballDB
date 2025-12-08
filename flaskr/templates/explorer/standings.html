@@ -1,52 +1,26 @@
 {% extends 'base.html' %}
 
 {% block header %}
-  <h1>{% block title %}League Standings{% endblock %}</h1>
+  <h1>{% block title %}Standings{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
-  <form method="get">
-    <label for="season_year">Select Season:</label>
-    <select name="season_year" id="season_year" onchange="this.form.submit()">
-      <option value="">-- Select a year --</option>
-      {% for season in seasons %}
-        <option value="{{ season.year }}" {% if season.year == selected_season %}selected{% endif %}>
-          {{ season.year }}
-        </option>
-      {% endfor %}
-    </select>
-    {% if phases %}
-      <label for="phase_id">Select Phase:</label>
-      <select name="phase_id" id="phase_id">
-        <option value="">-- Select a phase --</option>
-        {% for phase in phases %}
-          <option value="{{ phase.id }}" {% if phase.id == selected_phase %}selected{% endif %}>
-            {{ phase.name }}
-          </option>
-        {% endfor %}
-      </select>
-    {% endif %}
-    <input type="submit" value="View Standings">
-  </form>
-
-  {% if standings %}
-    <table>
-      <thead>
+  <table>
+    <thead>
+      <tr>
+        <th>Team</th>
+        <th>Wins</th>
+        <th>Losses</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for team in standings %}
         <tr>
-          <th>Team</th>
-          <th>Wins</th>
-          <th>Losses</th>
+          <td>{{ team.name }}</td>
+          <td>{{ team.wins }}</td>
+          <td>{{ team.losses }}</td>
         </tr>
-      </thead>
-      <tbody>
-        {% for team in standings %}
-          <tr>
-            <td>{{ team.name }}</td>
-            <td>{{ team.wins }}</td>
-            <td>{{ team.losses }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
 {% endblock %}

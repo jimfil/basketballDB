@@ -23,6 +23,9 @@
             <li><a href="{{ url_for('explorer.index', season_year=selected_season, phase_id=phase.id) }}">Phase {{ phase.phase_id }}</a></li>
           {% endfor %}
         </ul>
+        {% if selected_phase %}
+        <a href="{{ url_for('explorer.standings', phase_id=selected_phase) }}">View Standings</a>
+        {% endif %}
       </div>
     {% endif %}
 

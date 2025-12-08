@@ -58,9 +58,6 @@ def match_details(id):
     return render_template("basketball/match_details.html", stats=stats, scores=scores)
 
 
-
-
-
 @bp.route("/team/<int:team_id>/matches")
 @login_required
 def team_matches(team_id):
@@ -70,12 +67,15 @@ def team_matches(team_id):
         "basketball/team_matches.html", team_name=team_name[0]["name"], matches=matches
     )
 
+
 @bp.route("/team/<int:team_id>/players")
 @login_required
 def team_players(team_id):
     """Show all the players for a team."""
     players = get_players(team_id)
-    return render_template("basketball/team_players.html", players=players, team_id=team_id)
+    return render_template(
+        "basketball/team_players.html", players=players, team_id=team_id
+    )
 
 
 @bp.route("/player/<int:player_id>/shot-percentage")

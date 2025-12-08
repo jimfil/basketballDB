@@ -7,18 +7,18 @@
 {% block content %}
   <h2>Select a table to add data to:</h2>
   <ul>
-    <li><a href="{{ url_for('creator.create_season') }}">Create Season</a></li>
+    <li><a href="{{ url_for('creator.create_season_route') }}">Create Season</a></li>
     <li><a href="{{ url_for('creator.create_entity', table_name='stadium') }}">Create Stadium</a></li>
-    <li><a href="{{ url_for('creator.create_team') }}">Create Team</a></li>
-    <li><a href="{{ url_for('creator.create_person') }}">Create Person</a></li>
+    <li><a href="{{ url_for('creator.create_team_route') }}">Create Team</a></li>
+    <li><a href="{{ url_for('creator.create_person_route') }}">Create Person</a></li>
     <li><a href="{{ url_for('creator.create_entity', table_name='referee') }}">Create Referee</a></li>
     <li><a href="{{ url_for('creator.create_entity', table_name='event') }}">Create Event</a></li>
-    <li><a href="{{ url_for('creator.create_phase') }}">Create Phase</a></li>
-    <li><a href="{{ url_for('creator.create_person_team') }}">Create Person-Team Association</a></li>
-    <li><a href="{{ url_for('creator.create_round') }}">Create Round</a></li>
-    <li><a href="{{ url_for('creator.create_match') }}">Create Match</a></li>
-    <li><a href="{{ url_for('creator.create_team_stadium') }}">Create Team-Stadium Association</a></li>
-    <li><a href="{{ url_for('creator.create_match_referee') }}">Create Match-Referee Association</a></li>
-    <li><a href="{{ url_for('creator.create_event_creation') }}">Create Event Creation</a></li>
+    <li><a href="{{ url_for('creator.create_phase_route') }}">Create Phase</a></li>
+    <li><a href="{{ url_for('creator.create_person_team_route') }}">Create Person-Team Association</a></li>
+    <li><a href="{{ url_for('creator.create_round_route') }}">Create Round</a></li>
+    <li><a href="{{ url_for('creator.create_match_route') }}">Create Match</a></li>
+    <li><a href="{{ url_for('creator.create_team_stadium_route') }}">Create Team-Stadium Association</a></li>
+    <li><a href="{{ url_for('creator.create_match_referee_route') }}">Create Match-Referee Association</a></li>
+    <li><a href="{{ url_for('creator.create_event_creation_route') }}">Create Event Creation</a></li>
   </ul>
 {% endblock %}

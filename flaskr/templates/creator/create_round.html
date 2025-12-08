@@ -6,14 +6,14 @@
 
 {% block content %}
   <form method="post">
-    <label for="name">Round Name</label>
-    <input name="name" id="name" required>
     <label for="phase_id">Phase</label>
-    <select name="phase_id" id="phase_id" required>
+    <select name="phase_id" id="phase_id">
       {% for phase in phases %}
-        <option value="{{ phase.id }}">{{ phase.name }}</option>
+        <option value="{{ phase.id }}">{{ phase.phase_id }}</option>
       {% endfor %}
     </select>
+    <label for="round_id">Round ID</label>
+    <input type="number" name="round_id" id="round_id" required>
     <input type="submit" value="Create">
   </form>
 {% endblock %}

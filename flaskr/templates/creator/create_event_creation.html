@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Create Event Creation{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="event_id">Event</label>
+    <select name="event_id" id="event_id">
+      {% for event in events %}
+        <option value="{{ event.id }}">{{ event.name }}</option>
+      {% endfor %}
+    </select>
+    <label for="person_id">Person</label>
+    <select name="person_id" id="person_id">
+      {% for person in persons %}
+        <option value="{{ person.id }}">{{ person.first_name }} {{ person.last_name }}</option>
+      {% endfor %}
+    </select>
+    <label for="match_id">Match</label>
+    <select name="match_id" id="match_id">
+      {% for match in matches %}
+        <option value="{{ match.id }}">{{ match.id }}</option>
+      {% endfor %}
+    </select>
+    <label for="game_time">Game Time</label>
+    <input type="text" name="game_time" id="game_time" required>
+    <input type="submit" value="Create">
+  </form>
+{% endblock %}

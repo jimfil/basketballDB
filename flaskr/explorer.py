@@ -11,6 +11,7 @@ from basketballDB.model import (
     get_matches_by_phase,
     get_scores,
     get_team_name,
+    calculate_standings,
 )
 
 bp = Blueprint("explorer", __name__, url_prefix="/explorer")
@@ -58,3 +59,12 @@ def match_details(match_id):
         players=players,
         events=events,
     )
+
+
+@bp.route("/standings")
+def standings():
+    phase_id = request.args.get("phase_id", type=int)
+    standings = []
+    if phase_id:
+        standings = calculate_standings(phase_id)
+    return render_template("explorer/standings.html", standings=standings)

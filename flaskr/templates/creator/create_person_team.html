@@ -7,19 +7,23 @@
 {% block content %}
   <form method="post">
     <label for="person_id">Person</label>
-    <select name="person_id" id="person_id" required>
+    <select name="person_id" id="person_id">
       {% for person in persons %}
         <option value="{{ person.id }}">{{ person.first_name }} {{ person.last_name }}</option>
       {% endfor %}
     </select>
     <label for="team_id">Team</label>
-    <select name="team_id" id="team_id" required>
+    <select name="team_id" id="team_id">
       {% for team in teams %}
         <option value="{{ team.id }}">{{ team.name }}</option>
       {% endfor %}
     </select>
     <label for="shirt_num">Shirt Number</label>
-    <input name="shirt_num" id="shirt_num" type="number" required>
+    <input type="number" name="shirt_num" id="shirt_num" required>
+    <label for="beginning">Beginning</label>
+    <input type="datetime-local" name="beginning" id="beginning">
+    <label for="ending">Ending</label>
+    <input type="datetime-local" name="ending" id="ending">
     <input type="submit" value="Create">
   </form>
 {% endblock %}

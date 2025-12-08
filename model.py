@@ -86,6 +86,15 @@ def get_matches_by_team(team_id ,offset):
 def get_referees_in_match(match_id):
     return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = referee.id WHERE match_id = %s;", (match_id,))
 
+def get_referees(limit=0):
+    sql = "SELECT id, first_name, last_name FROM referee"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s"
+        params.append(limit)
+    
+    return query(sql, params)
+
 
 
 def get_players_in_match(match_id):
@@ -157,11 +166,11 @@ def create_event(name, type, subtype):
         except pymysql.err.IntegrityError as e:
             return
 
-def create_phase(year, name):
+def create_phase(phase_id, year):
     with get_connection() as con:
         cur = con.cursor()
         try:
-            cur.execute("INSERT INTO phase (year, name) VALUES (%s, %s);",  (year, name))
+            cur.execute("INSERT INTO phase (phase_id, year) VALUES (%s, %s);",  (phase_id, year))
             con.commit()
         except pymysql.err.IntegrityError as e:
             return
@@ -175,6 +184,18 @@ def create_team(name):
         except pymysql.err.IntegrityError as e:
             return  # IF e==pymysql.err.IntegrityError yparxei diplo onoma
 
+def create_event_creation(match_id, person_id, event_id, game_time):
+    with get_connection() as con:
+        cur = con.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO Event_Creation (match_id, person_id, event_id, game_time) VALUES (%s, %s, %s, %s);",
+                (match_id, person_id, event_id, game_time)
+            )
+            con.commit()
+        except pymysql.err.IntegrityError as e:
+            return
+
 def return_cud_tables(): #Return the tables for which you can create update and delete entries. 
     with get_connection() as con:
         with con.cursor() as cur:
@@ -185,7 +206,7 @@ def return_cud_tables(): #Return the tables for which you can create update and 
 def return_attributes(table_name): #Input is a santized dropdown box. Cannot use variable for some reason.
     with get_connection() as con:
         with con.cursor() as cur:
-            cur.execute(f"SHOW COLUMNS FROM {table_name};")
+            cur.execute(f"SHOW COLUMNS FROM `{table_name}`;")
             columns = cur.fetchall()
             return [col[0] for col in columns]
         
@@ -194,18 +215,19 @@ def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):  #e
         with con.cursor() as cur:
             lista =[]
             for table_attribute in list_table_attribute:
-                cur.execute(f"SELECT {table_attribute} FROM {table_name};")
+                cur.execute(f"SELECT {table_attribute} FROM `{table_name}`;")
                 lista.append([entry[0] for entry in cur])
             return lista
             
 
 def create_entry(table_name,list_user_input):
     col_names = return_attributes(table_name)
-    columns_str = ", ".join(col_names) 
-    placeholders = ", ".join(["%s"] * len(list_user_input)) #tha prepei na ta dinoume me thn swsth seira sto controller
+    col_names_no_id = [c for c in col_names if c != 'id']
+    columns_str = ", ".join(col_names_no_id) 
+    placeholders = ", ".join(["%s"] * len(list_user_input))
     with get_connection() as con:
         with con.cursor() as cur:
-            sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+            sql = f"INSERT INTO `{table_name}` ({columns_str}) VALUES ({placeholders})"
             cur.execute(sql, list_user_input)
             con.commit()
             print("Entry created.")
@@ -323,7 +345,7 @@ def get_phases_by_season(year):
     return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
 
 def get_phases(limit=0):
-    sql = "SELECT id, name FROM phase"
+    sql = "SELECT id, phase_id FROM phase"
     params = []
     if limit != 0:
         sql += " LIMIT %s"
@@ -342,7 +364,7 @@ def get_matches_by_phase(phase_id):
     return matches
 
 def get_rounds(limit=0):
-    sql = "SELECT id, name FROM round"
+    sql = "SELECT id, round_id FROM round"
     params = []
     if limit != 0:
         sql += " LIMIT %s"
@@ -364,6 +386,38 @@ def get_rounds_by_phase(phase_id):
 
 def get_team_name(team_id):
     return query("SELECT name FROM Team WHERE id = %s", (team_id,))
+
+
+def calculate_standings(phase_id):
+    """Calculates standings for a given phase_id using an optimized query."""
+    if not phase_id:
+        return []
+
+    matches = get_matches_by_phase(phase_id)
+    standings = {}
+
+    for match in matches:
+        home_team_id = match['home_team_id']
+        away_team_id = match['away_team_id']
+
+        # Initialize teams in standings if not present
+        if home_team_id not in standings:
+            standings[home_team_id] = {'name': get_team_name(home_team_id)[0]['name'], 'wins': 0, 'losses': 0}
+        if away_team_id not in standings:
+            standings[away_team_id] = {'name': get_team_name(away_team_id)[0]['name'], 'wins': 0, 'losses': 0}
+
+        scores = get_scores(match['match_id'])
+        home_score = scores.get(home_team_id, 0)
+        away_score = scores.get(away_team_id, 0)
+
+        if home_score > away_score:
+            standings[home_team_id]['wins'] += 1
+            standings[away_team_id]['losses'] += 1
+        else:
+            standings[home_team_id]['losses'] += 1
+            standings[away_team_id]['wins'] += 1
+
+    return sorted(standings.values(), key=lambda x: x['wins'], reverse=True)
 
 
 def create_season(year):

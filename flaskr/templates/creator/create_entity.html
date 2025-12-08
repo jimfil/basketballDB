@@ -1,17 +1,14 @@
 {% extends 'base.html' %}
 
 {% block header %}
-  <h1>{% block title %}Create {{ table_name|title }}
-{% endblock %}</h1>
+  <h1>{% block title %}Create an entry in {{ table_name|capitalize }}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
   <form method="post">
     {% for attribute in attributes %}
-      {% if attribute != 'id' %}
-        <label for="{{ attribute }}">{{ attribute.replace('_', ' ')|title }}</label>
-        <input name="{{ attribute }}" id="{{ attribute }}" required>
-      {% endif %}
+      <label for="{{ attribute }}">{{ attribute|capitalize }}</label>
+      <input name="{{ attribute }}" id="{{ attribute }}" required>
     {% endfor %}
     <input type="submit" value="Create">
   </form>

@@ -2,7 +2,9 @@ import pymysql
 import certifi
 import os
 from dotenv import load_dotenv
-
+import bcrypt
+# Hash the password "admin123"
+password_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
 # 1. Load the variables from the .env file
 load_dotenv()
 
@@ -43,7 +45,12 @@ try:
     
     conn.commit()
     print("SUCCESS! Your schema has been loaded into TiDB.")
-
+    print("Creating an admin 🥸🗣️🐾🧔🏿‍♀️🧔🏿‍♀️🧔🏿‍♀️")
+    sql = f"INSERT INTO admin (username, password) VALUES ('admin', '{password_hash}');"
+    try:
+        cursor.execute(sql)
+    except Exception as e:
+        print(f"Error: {e}")
 except FileNotFoundError:
     print("ERROR: Could not find matchDB.sql. Make sure it is in the same folder.")
 except Exception as e:

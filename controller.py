@@ -1,6 +1,34 @@
 from model import *
 from view_cmd import *
+import bcrypt 
 import time
+
+def admin_login_menu():
+    """
+    Controller for admin login menu.
+    Returns True if login is successful, False otherwise.
+    Supports q to cancel.
+    """
+    print_admin_login_header()
+    
+    while True:
+        username = get_admin_username_input()
+        
+        if username == 'q':
+            print_operation_cancelled()
+            return False
+        
+        password = get_admin_password_input()
+        
+        if password == 'q':
+            print_operation_cancelled()
+            return False
+        
+        if verify_admin_credentials(username, password):
+            print_login_success(username)
+            return True
+        else:
+            return False
 
 def handle_pagination(data_fetcher, display_function, *args):
     """
@@ -791,7 +819,10 @@ def stats_menu():
             shot_percentage_control()
 
 def main_menu(index):
-    if index==1: management_menu()
+    if index==1:
+        # Require admin login for Management Menu
+        if admin_login_menu():
+            management_menu()
     elif index==2: view_menu()
     elif index==3: stats_menu()
     elif index==4: check_time()

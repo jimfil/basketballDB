@@ -378,3 +378,17 @@ def print_unlink_success(item1, id1, item2, id2): print(f"Successfully unlinked 
 def print_event_creation_success(event_name, player_id, match_id): print(f"Successfully created event '{event_name}' for player {player_id} in match {match_id}.")
 def invalid_input():print("Invalid input. Please try again.")
 def print_welcome(): print("\n--->>Welcome to the BasketBall League<<---")
+
+def print_admin_login_header(): print("\n--- Admin Login ---")
+
+def get_admin_username_input():
+    """Prompts user for admin username or q to cancel."""
+    return input("Enter admin username (or q to go back): ").strip()
+
+def get_admin_password_input():
+    """Prompts user for admin password or q to cancel."""
+    return input("Enter admin password (or press q to go back): ").strip()
+
+def print_login_success(username): print(f"\nLogin successful! Welcome, {username}.")
+
+def print_login_failed(): print("\nLogin failed! Invalid username or password. Please try again.")

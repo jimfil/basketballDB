@@ -2,6 +2,7 @@ import pymysql
 import certifi
 import os
 from dotenv import load_dotenv
+import bcrypt
 
 load_dotenv()
 
@@ -720,3 +721,28 @@ def run_benchmark_query():
         with con.cursor() as cur:
             for _ in range(100):
                 cur.execute("SELECT id FROM Event_Creation ORDER BY game_time DESC LIMIT 1")
+
+
+def verify_admin_credentials(username, password):
+    """
+    Verify admin username and password by retrieving the hash from the database.
+    Returns True if credentials are valid, False otherwise.
+    """
+    sql = "SELECT password FROM admin WHERE username = %s"
+    
+    results = query(sql, (username,))
+
+    if not results:
+        print("Login Failed")
+        return False
+    hashed_password_str = results[0]['password']
+    
+    try:
+        return bcrypt.checkpw(
+            password.encode('utf-8'), 
+            hashed_password_str.encode('utf-8')
+        )
+    
+    except ValueError as e:
+        print("Login Failed")
+        return False

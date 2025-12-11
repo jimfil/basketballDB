@@ -121,6 +121,3 @@ CREATE TABLE `Team_stadium` (
   FOREIGN KEY (`round_id`) REFERENCES `Round` (`id`)
 );
 
-CREATE INDEX idx_match_date ON `Match` (match_date);
-
-CREATE INDEX idx_event_match_time ON `Event_Creation` (match_id, game_time);

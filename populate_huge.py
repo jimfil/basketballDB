@@ -278,6 +278,18 @@ def run_all_seasons(conn, cursor):
         current_match_id = simulate_season(conn, cursor, year, current_match_id, teams_24, rosters, e_map, team_home_stadiums, referees)
         conn.commit()
 
+    sql = [
+        "CREATE INDEX idx_event_match_time ON Event_Creation (match_id, game_time)",
+        "CREATE INDEX idx_match_date ON `Match` (match_date)"
+        ]
+    print(f"Creating indexes")
+    for prompt in sql:
+            try:
+                cursor.execute(prompt)
+            except pymysql.Error as e:
+                print(f"Error:{e}")
+    print("Successfully created indexes!")    
+
 def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, home_stadiums, referees):
     # --- HIERARCHY FOR YEAR ---
     # Season ID is the Year (e.g. 2021) - This is the exception
@@ -428,6 +440,9 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
     champ_id = fin_res[midF]['winner']
     cursor.execute("SELECT name FROM Team WHERE id=%s", (champ_id,))
     print(f"*** {year} CHAMPION: {cursor.fetchone()[0]} ***")
+    
+    
+                   
     
     # Return the updated match counter so the next year continues where we left off
     return match_id_counter

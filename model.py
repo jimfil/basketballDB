@@ -3,11 +3,8 @@ import certifi
 import os
 from dotenv import load_dotenv
 
-# 1. Load the variables from the .env file
 load_dotenv()
 
-# 2. Fetch variables (Best practice: use all caps for constants)
-# If the variable isn't found, these will be None
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
 DB_PASS = os.getenv('DB_PASS')
@@ -571,17 +568,17 @@ def create_player(player_data):
                 cur.execute(sql_person, list(person_data.values()))
                 person_id = cur.lastrowid
 
-                # Insert into Person_Team table using the same cursor
+                
                 team_id = player_data.get('team_id')
                 shirt_num = player_data.get('shirt_num')
                 if team_id and shirt_num is not None:
                     sql_person_team = "INSERT INTO Person_Team (person_id, team_id, shirt_num) VALUES (%s, %s, %s)"
                     cur.execute(sql_person_team, (person_id, team_id, shirt_num))
 
-            con.commit() # Commit the transaction
+            con.commit()
             return True
     except pymysql.Error:
-        # If anything fails (person insert, team insert), the transaction is rolled back automatically by the `with` block exit.
+        
         return False
 
 def delete_player(player_id):
@@ -591,16 +588,16 @@ def delete_player(player_id):
     """
     try:
         with get_connection() as con:
-            con.begin() # Start a transaction
+            con.begin() 
             with con.cursor() as cur:
-                # 1. Delete from child tables first (Event_Creation is handled by ON DELETE CASCADE)
+                
                 cur.execute("DELETE FROM Person_Team WHERE person_id = %s", (player_id,))
-                # 2. Finally, delete from the parent table
+                
                 cur.execute("DELETE FROM Person WHERE id = %s", (player_id,))
-            con.commit() # Commit all changes if successful
+            con.commit() 
             return True
     except pymysql.Error:
-        return False # The 'with' block will automatically roll back the transaction on error
+        return False 
 
 def delete_referee(referee_id):
     """
@@ -608,13 +605,13 @@ def delete_referee(referee_id):
     """
     try:
         with get_connection() as con:
-            con.begin() # Start a transaction
+            con.begin() 
             with con.cursor() as cur:
-                # 1. Unlink from all matches
+               
                 cur.execute("DELETE FROM Match_Referee WHERE referee_id = %s", (referee_id,))
-                # 2. Delete the referee
+                
                 cur.execute("DELETE FROM Referee WHERE id = %s", (referee_id,))
-            con.commit() # Commit all changes if successful
+            con.commit() 
             return True
     except pymysql.Error:
         return False
@@ -626,23 +623,23 @@ def delete_team(team_id):
     """
     try:
         with get_connection() as con:
-            con.begin() # Start a transaction
+            con.begin() 
             with con.cursor() as cur:
-                # 1. Check if the team is part of any match. If so, we cannot delete it.
+               
                 cur.execute("SELECT 1 FROM `Match` WHERE home_team_id = %s OR away_team_id = %s LIMIT 1", (team_id, team_id))
                 if cur.fetchone():
-                    return False # Team has matches, deletion is not allowed.
+                    return False 
 
-                # 2. Delete from child tables first
+                
                 cur.execute("DELETE FROM Person_Team WHERE team_id = %s", (team_id,))
                 cur.execute("DELETE FROM Team_stadium WHERE team_id = %s", (team_id,))
                 
-                # 3. Finally, delete from the parent table
+                
                 cur.execute("DELETE FROM Team WHERE id = %s", (team_id,))
-            con.commit() # Commit all changes if successful
+            con.commit() 
             return True
     except pymysql.Error:
-        return False # The 'with' block will automatically roll back the transaction on error
+        return False 
 
 def get_player_details(player_id):
     """Fetches detailed information for a single player."""
@@ -676,3 +673,50 @@ def delete_match_event(event_creation_id):
     """Deletes a specific event instance from the Event_Creation table."""
     sql = "DELETE FROM Event_Creation WHERE id = %s"
     return _execute_cud(sql, (event_creation_id,))
+
+def drop_all_defined_indexes():
+    """
+    Reads the list of intended indexes and drops each one using 
+    DROP INDEX IF EXISTS.
+    """
+    with get_connection() as con:
+
+        sql = [
+            "DROP INDEX IF EXISTS idx_event_match_time ON Event_Creation",
+            "DROP INDEX IF EXISTS idx_match_date ON `Match`"
+        ]
+        print("Dropping")
+        with con.cursor() as cursor:
+            for prompt in sql:
+                try:
+                    cursor.execute(prompt)
+                    print(f"Dropped indexes")
+                    
+                except pymysql.Error as e:
+                    print(f"Error:{e}")
+
+
+def apply_indexes():
+    with get_connection() as con:
+        sql = [
+        "CREATE INDEX idx_event_match_time ON Event_Creation (match_id, game_time)",
+        "CREATE INDEX idx_match_date ON `Match` (match_date)"
+        ]
+        print("Creating")
+        with con.cursor() as cursor:
+            for prompt in sql:
+                try:
+                    cursor.execute(prompt)
+                    print(f"Created indexes")
+                    
+                except pymysql.Error as e:
+                    print(f"Error:{e}")
+                    
+def run_benchmark_query():
+    """
+    Query for checking index's speed
+    """
+    with get_connection() as con:
+        with con.cursor() as cur:
+            for _ in range(100):
+                cur.execute("SELECT id FROM Event_Creation ORDER BY game_time DESC LIMIT 1")

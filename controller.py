@@ -1,5 +1,6 @@
 from model import *
 from view_cmd import *
+import time
 
 def handle_pagination(data_fetcher, display_function, *args):
     """
@@ -84,6 +85,9 @@ def find_matches_for_team():
 
     # Custom fetcher for matches as it returns a tuple (team_name, matches)
     # The generic paginator expects a list of items.
+    
+    
+    
     match_fetcher = lambda page: get_matches_by_team(team_id, page)[1]
     display_func = lambda matches: display_matches_for_team(team_name, matches)
 
@@ -94,7 +98,12 @@ def find_matches_for_team():
 def find_matchstats(match_id):
     if not match_id:
         return
+    
     handle_pagination_view_only(lambda page: get_match_stats(match_id, offset=page), display_match_stats)
+    start = time.time()
+    get_match_stats(match_id)
+    end = time.time()
+    print(f"Seconds elapsed for sql statement with indexes:{end - start}")
 
 def select_player():
     team_id = select_team_for_action()
@@ -711,9 +720,9 @@ def get_year():
     giwrgos = get_seasons()
     lista = [item["year"] for item in giwrgos]
     display_years(lista)
-    while True: # pragma: no cover
+    while True: 
         year_id = get_year_input() 
-        if year_id.lower() == 'q': return None # get_year_input already handles 'q', this is for consistency
+        if year_id.lower() == 'q': return None 
         if int(year_id) in lista: break
         invalid_input()
     return year_id
@@ -725,11 +734,11 @@ def view_menu():
             "--- View Menu ---",
             {"1": "View League by Season", "2": "View Teams", "3": "View All Matches"}
         )
-        if choice == 'q': return # This menu already had the correct 'q' check
+        if choice == 'q': return 
         if choice == "1":
             league_menu()
         elif choice == "2":
-            view_teams() # This now shows teams and then players for the selected team.
+            view_teams() 
         elif choice == "3":
             cmd_view_all_matches()
     
@@ -747,8 +756,12 @@ def league_menu():
             if group_phase is None:
                 print_no_group_phase_found()
                 continue
+            start = time.time()
             standings = calculate_group_stage_standings(group_phase['id'])
+            end = time.time()
             display_standings(standings, is_group_stage=True)
+            print(f"Seconds elapsed for sql statement with indexes:{end - start}")
+
 
         elif index == "2":
             phases = get_phases_by_season(year_id)
@@ -768,7 +781,7 @@ def stats_menu():
             "What stats would you like to view?",
             {"1": "Player Stats", "2": "Match Stats", "3": "Shot Analysis"}
         )
-        if choice == 'q': return # This menu already had the correct 'q' check
+        if choice == 'q': return 
         index = int(choice)
         if index == 1:
             find_playerstats(select_player()) # select_player uses select_team_for_action
@@ -781,11 +794,32 @@ def main_menu(index):
     if index==1: management_menu()
     elif index==2: view_menu()
     elif index==3: stats_menu()
-    elif index==0: return True # This will be triggered by 'q'
+    elif index==4: check_time()
+    elif index==0: return True 
     return False
 
+def check_time():
+    """
+    This function is useless in TiDB cloud databases because the connection interferes with the time measurement
+    """
+    drop_all_defined_indexes()
+    start_no_idx = time.time()
+    run_benchmark_query()
+    end_no_idx = time.time()
+    time_no_idx = end_no_idx - start_no_idx
 
+    apply_indexes()
+    start_idx = time.time()
+    run_benchmark_query()
+    end_idx = time.time()
+    time_idx = end_idx - start_idx
 
+    print(f"No Indexes:  {time_no_idx:.4f} s")
+    print(f"With Indexes: {time_idx:.4f} s")
+    
+    if time_idx > 0:
+        speedup = time_no_idx / time_idx
+        print(f"Improvement: {speedup:.2f}x faster")
 
 
 if __name__ == "__main__":
@@ -794,7 +828,7 @@ if __name__ == "__main__":
     while not exit:
         choice = get_menu_choice(
             "Press one of the following options:",
-            {"1": "Management Menu", "2": "View League and Teams", "3": "Stats"},
+            {"1": "Management Menu", "2": "View League and Teams", "3": "Stats","4": "Check times"},
             quit_text="Exit application"
         )
         if choice == 'q':

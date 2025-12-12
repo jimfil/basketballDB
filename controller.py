@@ -1,6 +1,5 @@
 from model import *
 from view_cmd import *
-import bcrypt 
 import time
 
 def admin_login_menu():

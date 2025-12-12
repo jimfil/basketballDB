@@ -9,7 +9,6 @@ def admin_login_menu():
     Returns True if login is successful, False otherwise.
     Supports q to cancel.
     """
-    print_admin_login_header()
     
     while True:
         username = get_admin_username_input()
@@ -28,6 +27,7 @@ def admin_login_menu():
             print_login_success(username)
             return True
         else:
+            print_login_failed()
             return False
 
 def handle_pagination(data_fetcher, display_function, *args):
@@ -731,7 +731,9 @@ def management_menu():
                 "1": "Create Team/Players/Season",
                 "2": "Change Information Menu",
                 "3": "Match/Referees Menu",
-                "4": "Delete Menu"
+                "4": "Delete Menu",
+                "5": "Add admin user",
+                "6": "Remove admin user"
             }
         )
         if choice == 'q': return # This menu already had the correct 'q' check
@@ -743,6 +745,42 @@ def management_menu():
             matches_events_menu()
         elif choice == "4":
             delete_menu()
+        elif choice == "5":
+            cmd_add_admin_user()
+        elif choice == "6":
+            cmd_remove_admin_user()
+
+def cmd_add_admin_user():
+    username, password = get_new_admin_credentials()
+    if not username or not password:
+        print_operation_cancelled()
+        return
+
+    if add_admin_user(username, password):
+        print_admin_creation_success(username)
+    else:
+        print_creation_failed("admin user", username)
+
+def cmd_remove_admin_user():
+    username = get_admin_username_input()
+    if username == 'q':
+        print_operation_cancelled()
+        return
+    password = get_admin_password_input()
+    if password == 'q':
+        print_operation_cancelled()
+        return
+    if not password or not username:
+        print_operation_cancelled()
+        return
+
+    if verify_admin_credentials(username,password):
+        if remove_admin_user(username):
+            print_admin_removal_success(username)
+        else:
+            print_removal_failed("admin user", username)
+    else:
+            print_removal_failed("admin user", username)
 
 def get_year():
     giwrgos = get_seasons()
@@ -807,7 +845,7 @@ def stats_menu():
     while True:
         choice = get_menu_choice(
             "What stats would you like to view?",
-            {"1": "Player Stats", "2": "Match Stats", "3": "Shot Analysis"}
+            {"1": "Player Stats", "2": "Match Stats", "3": "Shot Analysis", "4": "Season MVP"}
         )
         if choice == 'q': return 
         index = int(choice)
@@ -817,6 +855,16 @@ def stats_menu():
             find_matches_for_team() # find_matches_for_team uses select_team_for_action
         elif index == 3:
             shot_percentage_control()
+        elif index == 4:
+            year = get_year()
+            if not year:
+                print_operation_cancelled()
+                continue
+            mvp_data = get_year_mvp(year)
+            if mvp_data:
+                display_season_mvp(year, mvp_data)
+            
+
 
 def main_menu(index):
     if index==1:

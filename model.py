@@ -101,7 +101,7 @@ def get_referees(offset=0, limit=10):
 def link_referee_to_match(match_id, referee_id):
     """Links a referee to a match in the Match_Referee table."""
     sql = "INSERT INTO Match_Referee (match_id, referee_id) VALUES (%s, %s)"
-    return _execute_cud(sql, (match_id, referee_id))
+    return execute_cud(sql, (match_id, referee_id))
 
 def get_unassigned_referees(match_id, offset=0, limit=10):
     """Fetches referees not already assigned to a specific match, paginated."""
@@ -150,9 +150,9 @@ def get_matches_for_referee(referee_id, offset=0, limit=10):
     """
     return query(sql, (referee_id, limit, offset * limit))
 
-def _execute_cud(sql, params=()):
+def execute_cud(sql, params=()):
     """
-    A private helper function to execute Create, Update, or Delete statements.
+    Helper function to execute Create, Update, or Delete statements.
     Returns True on success, False on any database error.
     """
     try:
@@ -162,12 +162,11 @@ def _execute_cud(sql, params=()):
                 con.commit()
                 return True
     except pymysql.Error:
-        # Catches any DB operational error.
         return False
 
-def _execute_insert_and_get_id(sql, params=()):
+def execute_insert_and_get_id(sql, params=()):
     """
-    A private helper for INSERT statements that need to return the new row's ID.
+    Helper function to INSERT statements that need to return the new row's ID.
     Returns the new ID on success, None on failure.
     """
     try:
@@ -180,44 +179,44 @@ def _execute_insert_and_get_id(sql, params=()):
         return None
 
 def create_season(year):
-    return _execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
+    return execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
 
 def create_stadium(name, capacity):
-    return _execute_cud("INSERT INTO Stadium (name, capacity) VALUES (%s, %s);", (name, capacity))
+    return execute_cud("INSERT INTO Stadium (name, capacity) VALUES (%s, %s);", (name, capacity))
 
 def create_person(first_name, last_name, speciality):
-    return _execute_cud("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);", (first_name, last_name, speciality))
+    return execute_cud("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);", (first_name, last_name, speciality))
 
 def create_referee(first_name, last_name):
-    return _execute_cud("INSERT INTO referee (first_name, last_name) VALUES (%s, %s);", (first_name, last_name))
+    return execute_cud("INSERT INTO referee (first_name, last_name) VALUES (%s, %s);", (first_name, last_name))
 
 def create_event(name, type, subtype):
-    return _execute_cud("INSERT INTO event (name, type, subtype) VALUES (%s, %s, %s);", (name, type, subtype))
+    return execute_cud("INSERT INTO event (name, type, subtype) VALUES (%s, %s, %s);", (name, type, subtype))
 
 def create_round(round_id, phase_id):
-    return _execute_cud("INSERT INTO Round (round_id, phase_id) VALUES (%s, %s);", (round_id, phase_id))
+    return execute_cud("INSERT INTO Round (round_id, phase_id) VALUES (%s, %s);", (round_id, phase_id))
 
 def create_phase(year, phase_id):
-    return _execute_insert_and_get_id("INSERT INTO phase (year, phase_id) VALUES (%s, %s);", (year, phase_id))
+    return execute_insert_and_get_id("INSERT INTO phase (year, phase_id) VALUES (%s, %s);", (year, phase_id))
 
 def create_team(name):
-    return _execute_cud("INSERT INTO Team (NAME) VALUES (%s);", (name,))
+    return execute_cud("INSERT INTO Team (NAME) VALUES (%s);", (name,))
 
-def return_cud_tables(): #Return the tables for which you can create update and delete entries. 
+def return_cud_tables(): 
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute("SHOW TABLES;")
             tables = cur.fetchall()
             return [tables[0] for tables in tables]
         
-def return_attributes(table_name): #Input is a santized dropdown box. Cannot use variable for some reason.
+def return_attributes(table_name): 
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute(f"SHOW COLUMNS FROM {table_name};")
             columns = cur.fetchall()
             return [col[0] for col in columns]
         
-def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):  #ean den baloume orisma epistrefei mono to id
+def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):  
     with get_connection() as con:
         with con.cursor() as cur:
             lista =[]
@@ -232,11 +231,11 @@ def create_entry(table_name,list_user_input):
     columns_str = ", ".join(col_names) 
     placeholders = ", ".join(["%s"] * len(list_user_input)) #tha prepei na ta dinoume me thn swsth seira sto controller
     sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
-    return _execute_cud(sql, list_user_input)
+    return execute_cud(sql, list_user_input)
 
 def delete_from_table(table_name,id):
     sql = f"DELETE FROM {table_name} WHERE id = %s;"
-    return _execute_cud(sql, (id,))
+    return execute_cud(sql, (id,))
         
 def update_entry(table_name, entry_id, data_dict):
     """
@@ -248,17 +247,17 @@ def update_entry(table_name, entry_id, data_dict):
     :return: True on success, False on failure.
     """
     if not data_dict:
-        return False # Nothing to update
+        return False 
 
     set_clause = ", ".join([f"`{col}` = %s" for col in data_dict.keys()])
     sql = f"UPDATE `{table_name}` SET {set_clause} WHERE `id` = %s"
     
     values = list(data_dict.values()) + [entry_id]
-    return _execute_cud(sql, tuple(values))
+    return execute_cud(sql, tuple(values))
 
 def update_player_shirt_number(player_id, new_shirt_number):
     """Updates a player's shirt number in the Person_Team table."""
-    return _execute_cud("UPDATE Person_Team SET shirt_num = %s WHERE person_id = %s", (new_shirt_number, player_id))
+    return execute_cud("UPDATE Person_Team SET shirt_num = %s WHERE person_id = %s", (new_shirt_number, player_id))
 
 def get_all_events():
     """Fetches all possible event types with their IDs."""
@@ -548,7 +547,7 @@ def get_team_name(team_id):
 
 
 def create_season(year):
-    return _execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
+    return execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
 
 
 def get_person_attributes():
@@ -658,22 +657,22 @@ def create_match(match_data):
     """Inserts a new match into the Match table and returns its ID."""
     sql = """INSERT INTO `Match` (home_team_id, away_team_id, round_id, match_date, status)
              VALUES (%s, %s, %s, %s, %s)"""
-    return _execute_insert_and_get_id(sql, (match_data['home_team_id'], match_data['away_team_id'], match_data['round_id'], match_data['match_date'], match_data['status']))
+    return execute_insert_and_get_id(sql, (match_data['home_team_id'], match_data['away_team_id'], match_data['round_id'], match_data['match_date'], match_data['status']))
 
 def unlink_referee_from_match(match_id, referee_id):
     """Unlinks a referee from a specific match."""
     sql = "DELETE FROM Match_Referee WHERE match_id = %s AND referee_id = %s"
-    return _execute_cud(sql, (match_id, referee_id))
+    return execute_cud(sql, (match_id, referee_id))
 
 def create_match_event(match_id, person_id, event_id, game_time):
     """Inserts a new event into the Event_Creation table."""
     sql = "INSERT INTO Event_Creation (match_id, person_id, event_id, game_time) VALUES (%s, %s, %s, %s)"
-    return _execute_cud(sql, (match_id, person_id, event_id, game_time))
+    return execute_cud(sql, (match_id, person_id, event_id, game_time))
 
 def delete_match_event(event_creation_id):
     """Deletes a specific event instance from the Event_Creation table."""
     sql = "DELETE FROM Event_Creation WHERE id = %s"
-    return _execute_cud(sql, (event_creation_id,))
+    return execute_cud(sql, (event_creation_id,))
 
 def drop_all_defined_indexes():
     """
@@ -733,10 +732,9 @@ def verify_admin_credentials(username, password):
     results = query(sql, (username,))
 
     if not results:
-        print("Login Failed")
         return False
     hashed_password_str = results[0]['password']
-    
+
     try:
         return bcrypt.checkpw(
             password.encode('utf-8'), 
@@ -744,5 +742,58 @@ def verify_admin_credentials(username, password):
         )
     
     except ValueError as e:
-        print("Login Failed")
         return False
+    
+
+def get_year_mvp(year):
+    """
+    Function that returns the MVP of a given season.
+    
+    :param year: Season year
+    """
+    sql = """
+        WITH SeasonMatches AS (
+            SELECT m.id
+            FROM `Match` m
+            JOIN `Round` r ON m.round_id = r.id
+            JOIN `Phase` p ON r.phase_id = p.id
+            WHERE p.year = %s AND m.status = 'Completed'
+        ),
+        PlayerPoints AS (
+            SELECT 
+                ec.person_id,
+                SUM(
+                    CASE 
+                        WHEN e.name = '3-Point Field Goal Made' THEN 3
+                        WHEN e.name = '2-Point Field Goal Made' THEN 2
+                        WHEN e.name = 'Free Throw Made' THEN 1
+                        ELSE 0
+                    END
+                ) AS total_points
+            FROM Event_Creation ec
+            JOIN Event e ON ec.event_id = e.id
+            WHERE ec.match_id IN (SELECT id FROM SeasonMatches)
+            GROUP BY ec.person_id
+        )
+        SELECT p.first_name, p.last_name, pp.total_points
+        FROM PlayerPoints pp
+        JOIN Person p ON pp.person_id = p.id
+        ORDER BY pp.total_points DESC
+        LIMIT 1;
+    """
+    return query(sql, (year,))[0] if query(sql, (year,)) else None
+
+def add_admin_user(username, password):
+    """
+    Adds a new admin user with hashed password.
+    """
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    sql = "INSERT INTO admin (username, password) VALUES (%s, %s)"
+    return execute_cud(sql, (username, hashed_password))
+
+def remove_admin_user(username):
+    """
+    Removes an admin user by username.
+    """
+    sql = "DELETE FROM admin WHERE username = %s"
+    return execute_cud(sql, (username,))

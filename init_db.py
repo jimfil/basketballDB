@@ -49,6 +49,7 @@ try:
     sql = f"INSERT INTO admin (username, password) VALUES ('admin', '{password_hash}');"
     try:
         cursor.execute(sql)
+        conn.commit()
     except Exception as e:
         print(f"Error: {e}")
 except FileNotFoundError:

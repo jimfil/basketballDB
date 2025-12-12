@@ -351,6 +351,7 @@ def print_no_group_phase_found():print("No group phase found for the selected se
 def print_no_knockout_rounds_found():print("No rounds found for the knock out phase.")
 def print_season_creation_failed(year): print(f"Failed to create season '{year}'. It may already exist.")
 def print_creation_failed(item_type, name): print(f"Failed to create {item_type} '{name}'. It may already exist or there was a database error.")
+def print_removal_failed(item_type, name): print(f"Failed to remove {item_type} '{name}'.")
 def print_season_creation_success(year): print(f"Season '{year}' created successfully.")
 def print_phases_creation_success(): print("Group Stage and Knockout phases created.")
 def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
@@ -379,7 +380,7 @@ def print_event_creation_success(event_name, player_id, match_id): print(f"Succe
 def invalid_input():print("Invalid input. Please try again.")
 def print_welcome(): print("\n--->>Welcome to the BasketBall League<<---")
 
-def print_admin_login_header(): print("\n--- Admin Login ---")
+
 
 def get_admin_username_input():
     """Prompts user for admin username or q to cancel."""
@@ -392,3 +393,27 @@ def get_admin_password_input():
 def print_login_success(username): print(f"\nLogin successful! Welcome, {username}.")
 
 def print_login_failed(): print("\nLogin failed! Invalid username or password. Please try again.")
+def display_season_mvp(year,player): print(f"\nThe {year} MVP is:", f"{player['first_name']} {player['last_name']} with a total of {player['total_points']} points.") 
+def get_new_admin_credentials():
+    """Prompts user for new admin username and password."""
+    print("\nEnter new admin user details (leave username blank to cancel):")
+    username = input("Username: ").strip()
+    if not username:
+        return None
+    password = input("Password (or q to go back): ").strip()
+    while not password:
+        print("Password cannot be empty.")
+        password = input("Password (or q to go back): ").strip()
+        if password == 'q':
+            return None
+    password2 = input("Input your Password again: ").strip()
+    while password2 != password:
+        print("Password doesn't match.")
+        password2 = input("Password (or q to go back): ").strip()
+        if password2 == 'q':
+            return None
+
+    return username,password
+
+def print_admin_creation_success(username): print(f"Admin user '{username}' added successfully.")
+def print_admin_removal_success(username): print(f"Admin user '{username}' removed successfully.")

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Create Match - Step 3: Select Round</h1>
+    <form method="post">
+        <label for="round_id">Round</label>
+        <select name="round_id" id="round_id">
+            {% for round in rounds %}
+                <option value="{{ round.id }}">Round {{ round.round_id }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Next</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Create Match - Step 4: Details</h1>
+    <form method="post">
+        <label for="match_date">Date</label>
+        <input type="date" name="match_date" id="match_date" required>
+
+        <label for="home_team_id">Home Team</label>
+        <select name="home_team_id" id="home_team_id">
+            {% for team in teams %}
+                <option value="{{ team.id }}">{{ team.name }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="away_team_id">Away Team</label>
+        <select name="away_team_id" id="away_team_id">
+            {% for team in teams %}
+                <option value="{{ team.id }}">{{ team.name }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Create Match</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Create New Team</h1>
+    <form method="post">
+        <label for="name">Team Name</label>
+        <input type="text" id="name" name="name" required>
+        <button type="submit">Create Team</button>
+    </form>
+{% endblock %}

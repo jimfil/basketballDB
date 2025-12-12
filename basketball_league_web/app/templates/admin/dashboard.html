@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Admin Dashboard</h1>
+    <p>Welcome, {{ current_user.username }}!</p>
+    <ul>
+        <li><a href="{{ url_for('admin.create_team') }}">Add New Team</a></li>
+        <li><a href="{{ url_for('admin.create_match') }}">Create Match</a></li>
+        <li><a href="#">Manage Referees</a></li>
+    </ul>
+{% endblock %}

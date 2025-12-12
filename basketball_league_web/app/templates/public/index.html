@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Welcome to the Basketball League</h1>
+    <p>Check out the latest standings and stats:</p>
+    <ul>
+        <li><a href="{{ url_for('public.standings', year=2024) }}">Standings 2024</a></li>
+        <li><a href="{{ url_for('public.mvp_stats', year=2024) }}">MVP Stats 2024</a></li>
+    </ul>
+{% endblock %}

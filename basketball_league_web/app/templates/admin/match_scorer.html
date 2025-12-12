@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Match Scorer</h1>
+    <h2>{{ match.home_team_name }} vs {{ match.away_team_name }}</h2>
+
+    <div class="scorer-grid">
+        <div class="team-column">
+            <h3>{{ match.home_team_name }}</h3>
+            <ul>
+                {% for player in home_players %}
+                    <li>
+                        <button class="player-btn" data-player-id="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</button>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="team-column">
+            <h3>{{ match.away_team_name }}</h3>
+            <ul>
+                {% for player in away_players %}
+                    <li>
+                        <button class="player-btn" data-player-id="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</button>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Modal for event selection -->
+    <div id="event-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h4 id="modal-player-name"></h4>
+            <input type="hidden" id="modal-player-id">
+            <button class="event-type-btn" data-event-type="2pt">2 Points</button>
+            <button class="event-type-btn" data-event-type="3pt">3 Points</button>
+            <button class="event-type-btn" data-event-type="foul">Foul</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/scorer.js') }}"></script>
+    <script>
+        // Pass match ID to scorer.js
+        const MATCH_ID = {{ match.id }};
+    </script>
+{% endblock %}

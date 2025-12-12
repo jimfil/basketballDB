@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Create Match - Step 1: Select Season</h1>
+    <form method="post">
+        <label for="year">Season</label>
+        <select name="year" id="year">
+            {% for season in seasons %}
+                <option value="{{ season.year }}">{{ season.year }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Next</button>
+    </form>
+{% endblock %}

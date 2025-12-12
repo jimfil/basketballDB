@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Create Match - Step 2: Select Phase</h1>
+    <form method="post">
+        <label for="phase_id">Phase</label>
+        <select name="phase_id" id="phase_id">
+            {% for phase in phases %}
+                <option value="{{ phase.id }}">{{ "Group Stage" if phase.phase_id == 1 else "Finals/Knockout" }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Next</button>
+    </form>
+{% endblock %}

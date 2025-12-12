@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 from flask import Blueprint, render_template, abort
 from app import db
-from model import get_teams, get_players, get_all_matches_with_names, get_seasons, get_phases_by_season, calculate_group_stage_standings
+from model import get_teams, get_players, get_all_matches_with_names, get_seasons, get_phases_by_season, calculate_group_stage_standings, calculate_standings_for_phase
 
 public_bp = Blueprint('public', __name__)
 
@@ -30,11 +30,27 @@ def standings_index():
 def standings(year):
     phases = get_phases_by_season(year)
     group_phase = next((p for p in phases if p['phase_id'] == 1), None)
+    knockout_phase = next((p for p in phases if p['phase_id'] == 2), None)
+
     if group_phase:
-        standings_data = calculate_group_stage_standings(group_phase['id'])
+        group_standings = calculate_group_stage_standings(group_phase['id'])
     else:
-        standings_data = []
-    return render_template('public/standings.html', year=year, standings=standings_data, is_group_stage=True if group_phase else False, ord=ord, chr=chr)
+        group_standings = []
+
+    if knockout_phase:
+        knockout_standings = calculate_standings_for_phase(knockout_phase['id'])
+    else:
+        knockout_standings = []
+
+    return render_template(
+        'public/standings.html',
+        year=year,
+        group_standings=group_standings,
+        knockout_standings=knockout_standings,
+        is_group_stage=True if group_phase else False,
+        ord=ord,
+        chr=chr
+    )
 
 @public_bp.route('/stats/mvp/<int:year>')
 def mvp_stats(year):

@@ -3,36 +3,49 @@
 {% block content %}
     <h1>Standings for {{ year }}</h1>
 
-    {% if not standings %}
-        <p>No standings available for this season.</p>
-    {% elif not is_group_stage %}
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Pos</th>
-                    <th>Team</th>
-                    <th>W</th>
-                    <th>L</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for team in standings %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td>{{ team.name }}</td>
-                        <td>{{ team.wins }}</td>
-                        <td>{{ team.losses }}</td>
-                    </tr>
+    <div style="display: flex; gap: 2rem;">
+        <div style="flex: 1;">
+            <h2>Phase 1: Group Stage</h2>
+            {% if not group_standings %}
+                <p>No group stage standings available for this season.</p>
+            {% else %}
+                {% set ns = namespace(current_group=None, group_char='A') %}
+                {% for team in group_standings %}
+                    {% if team.group_identifier != ns.current_group %}
+                        {% set ns.current_group = team.group_identifier %}
+                        <h3>Group {{ ns.group_char }}</h3>
+                        {% set ns.group_char = chr(ord(ns.group_char) + 1) %}
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Team</th>
+                                    <th>W</th>
+                                    <th>L</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    {% endif %}
+                            <tr>
+                                <td>{{ team.group_rank }}</td>
+                                <td>{{ team.name }}</td>
+                                <td>{{ team.wins|int }}</td>
+                                <td>{{ team.losses|int }}</td>
+                                <td>{{ "Qualified" if team.group_rank <= 4 else "Not Qualified" }}</td>
+                            </tr>
+                    {% if loop.last or loop.nextitem.group_identifier != ns.current_group %}
+                            </tbody>
+                        </table>
+                    {% endif %}
                 {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        {% set ns = namespace(current_group=None, group_char='A') %}
-        {% for team in standings %}
-            {% if team.group_identifier != ns.current_group %}
-                {% set ns.current_group = team.group_identifier %}
-                <h3>Group {{ ns.group_char }}</h3>
-                {% set ns.group_char = chr(ord(ns.group_char) + 1) %}
+            {% endif %}
+        </div>
+        <div style="flex: 1;">
+            <h2>Phase 2: Knockout Stage</h2>
+            {% if not knockout_standings %}
+                <p>No knockout stage standings available for this season.</p>
+            {% else %}
                 <table class="table">
                     <thead>
                         <tr>
@@ -40,23 +53,20 @@
                             <th>Team</th>
                             <th>W</th>
                             <th>L</th>
-                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
-            {% endif %}
-                    <tr>
-                        <td>{{ team.group_rank }}</td>
-                        <td>{{ team.name }}</td>
-                        <td>{{ team.wins|int }}</td>
-                        <td>{{ team.losses|int }}</td>
-                        <td>{{ "Qualified" if team.group_rank <= 4 else "Not Qualified" }}</td>
-                    </tr>
-            {% if loop.last or loop.nextitem.group_identifier != ns.current_group %}
+                        {% for team in knockout_standings %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ team.name }}</td>
+                                <td>{{ team.wins }}</td>
+                                <td>{{ team.losses }}</td>
+                            </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             {% endif %}
-        {% endfor %}
-    {% endif %}
+        </div>
+    </div>
 {% endblock %}
-

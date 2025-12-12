@@ -4,7 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, abort, flash
 from flask_login import login_required
 from app import db
-from model import get_seasons, get_phases_by_season, get_rounds_by_phase, get_teams, create_match
+from model import get_seasons, get_phases_by_season, get_rounds_by_phase, get_teams, create_match as create_match_model, create_player
 
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -110,6 +110,39 @@ def add_event():
 
     return jsonify({'success': True, 'event_id': new_event_id}), 201
 
+@admin_bp.route('/create/match', methods=['GET', 'POST'])
+def create_match():
+    if request.method == 'POST':
+        session['year'] = request.form['year']
+        return redirect(url_for('admin.create_match_step2'))
+    
+    seasons = get_seasons()
+    return render_template('admin/create_match_step1.html', seasons=seasons)
+
+@admin_bp.route('/create/match/step2', methods=['GET', 'POST'])
+def create_match_step2():
+    if 'year' not in session:
+        return redirect(url_for('admin.create_match'))
+
+    if request.method == 'POST':
+        session['phase_id'] = request.form['phase_id']
+        return redirect(url_for('admin.create_match_step3'))
+
+    phases = get_phases_by_season(session['year'])
+    return render_template('admin/create_match_step2.html', phases=phases)
+
+@admin_bp.route('/create/match/step3', methods=['GET', 'POST'])
+def create_match_step3():
+    if 'phase_id' not in session:
+        return redirect(url_for('admin.create_match_step2'))
+
+    if request.method == 'POST':
+        session['round_id'] = request.form['round_id']
+        return redirect(url_for('admin.create_match_step4'))
+
+    rounds = get_rounds_by_phase(session['phase_id'])
+    return render_template('admin/create_match_step3.html', rounds=rounds)
+
 @admin_bp.route('/create/match/step4', methods=['GET', 'POST'])
 def create_match_step4():
     if 'round_id' not in session:
@@ -129,7 +162,7 @@ def create_match_step4():
             'status': status
         }
         
-        if create_match(match_data):
+        if create_match_model(match_data):
             flash('Match created successfully!', 'success')
         else:
             flash('Error creating match.', 'danger')
@@ -142,3 +175,37 @@ def create_match_step4():
 
     teams = get_teams(limit=100)
     return render_template('admin/create_match_step4.html', teams=teams)
+
+@admin_bp.route('/create/player', methods=['GET', 'POST'])
+def create_player_step1():
+    if request.method == 'POST':
+        session['team_id'] = request.form['team_id']
+        return redirect(url_for('admin.create_player_step2'))
+    
+    teams = get_teams(limit=100)
+    return render_template('admin/create_player_step1.html', teams=teams)
+
+@admin_bp.route('/create/player/step2', methods=['GET', 'POST'])
+def create_player_step2():
+    if 'team_id' not in session:
+        return redirect(url_for('admin.create_player_step1'))
+
+    if request.method == 'POST':
+        player_data = {
+            'first_name': request.form['first_name'],
+            'last_name': request.form['last_name'],
+            'shirt_num': request.form['shirt_num'],
+            'team_id': session['team_id'],
+            'speciality': 'Player'
+        }
+        
+        if create_player(player_data):
+            flash('Player created successfully!', 'success')
+        else:
+            flash('Error creating player.', 'danger')
+            
+        session.pop('team_id', None)
+        
+        return redirect(url_for('admin.dashboard'))
+
+    return render_template('admin/create_player_step2.html')

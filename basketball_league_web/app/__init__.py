@@ -27,9 +27,11 @@ def create_app(config_class=Config):
     from .blueprints.auth import auth_bp
     from .blueprints.public import public_bp
     from .blueprints.admin import admin_bp
+    from .blueprints.referee import referee_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(referee_bp)
 
     @app.context_processor
     def inject_user():

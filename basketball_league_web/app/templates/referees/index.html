@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Manage Referees</h1>
+    <ul>
+        <li><a href="{{ url_for('referee.create') }}">Create New Referee</a></li>
+        {# Add other links here later #}
+    </ul>
+{% endblock %}

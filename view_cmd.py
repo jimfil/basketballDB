@@ -25,15 +25,15 @@ def display_years(years):
 
 
 def display_standings(standings_list, is_group_stage=False):
-    if not is_group_stage or not standings_list or 'group_rank' not in standings_list[0]: # pragma: no cover
-        # Fallback to simple display for knockout or old format
+    if not is_group_stage or not standings_list or 'group_rank' not in standings_list[0]:
+        
         header = f"\n{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}"
         print(header)
         print("-" * 50)
         for i, team in enumerate(standings_list):
             print(f"{i+1:<5}{team['name']:<25}{team['wins']:<5}{team['losses']:<5}")
     else:
-        # Group-aware display logic
+        
         current_group = None
         group_char = 'A'
         for team in standings_list:
@@ -83,7 +83,7 @@ def get_round_selection(rounds):
         if choice.lower() == 'q':
             return None
         if choice in valid_round_ids:
-            # Find the database ID for the chosen logical round ID
+            
             for r in rounds:
                 if str(r['round_id']) == choice:
                     return r['id']
@@ -120,7 +120,7 @@ def display_match_score(match_id, scores):
     """Displays the final score for a match."""
     print(f"\n--- Final Score for Match {match_id} ---")
     for team_id, score in scores.items():
-        # In a more advanced version, you could fetch team names here
+        
         print(f"Team {team_id}: {score}")
     print("------------------------------------")
 
@@ -166,6 +166,20 @@ def display_matches_for_team(team_name, matches):
     for match in matches:
         print(f"{match['id']:<10}{str(match['match_date']):<15}{match['home_team_name']:<25}{match['away_team_name']:<25}")
 
+
+def display_team_stadiums(stadiums):
+    """Displays a paginated list of stadiums assigned to a team."""
+    if not stadiums:
+        print("No stadium history found for this team.")
+        return
+
+    print(f"\n--- Team Stadium History ---")
+    print(f"{'Stadium ID':<12}{'Name':<30}{'Location':<25}{'Season':<8}{'Phase':<8}{'Round':<8}")
+    print("-" * 90)
+    for row in stadiums:
+        phase_display = f"{row.get('phase_id', '?')}"
+        print(f"{row['stadium_id']:<12}{row['stadium_name']:<30}{row['location']:<25}{row['year']:<8}{phase_display:<8}{row['round_id']:<8}")
+
 def display_referees_paginated(referees):
     """Displays a paginated list of referees."""
     if not referees:
@@ -204,7 +218,7 @@ def display_all_matches(matches):
     print("-" * 100)
     for match in matches:
         score_str = ""
-        # Check if score data is present and the match is completed
+        
         if match.get('home_score') is not None and match.get('away_score') is not None and match['status'] == 'Completed':
             score_str = f"{int(match['home_score'])}-{int(match['away_score'])}"
 
@@ -277,15 +291,14 @@ def get_game_time_input():
         if time_str.lower() == 'q':
             return None
         try:
-            # We parse it to validate, but will store it as a string for the DB which expects a timestamp-like format
             datetime.strptime(time_str, '%M:%S')
-            return f"1970-01-01 00:{time_str}" # Format for DB timestamp
+            return f"1970-01-01 00:{time_str}"
         except ValueError:
             print("Invalid time format. Please use MM:SS.")
 
 def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
 def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
-def get_new_team_name_input(): return input("Enter the new team name: ").strip()
+def get_new_team_name_input(): return input("Enter the new team name (or q to go back): ").strip()
 def get_updated_player_info_input(current_details):
     """
     Prompts user for updated player details, showing current values.
@@ -296,17 +309,14 @@ def get_updated_player_info_input(current_details):
     
     changes = {}
     
-    # First Name
     new_first_name = input(f"First Name [{current_details['first_name']}]: ").strip()
     if new_first_name and new_first_name != current_details['first_name']:
         changes['first_name'] = new_first_name
         
-    # Last Name
     new_last_name = input(f"Last Name [{current_details['last_name']}]: ").strip()
     if new_last_name and new_last_name != current_details['last_name']:
         changes['last_name'] = new_last_name
         
-    # Shirt Number
     current_shirt = current_details.get('shirt_num', 'N/A')
     new_shirt_num_str = input(f"Shirt Number [{current_shirt}]: ").strip()
     if new_shirt_num_str and new_shirt_num_str.isdigit():
@@ -379,7 +389,8 @@ def print_unlink_success(item1, id1, item2, id2): print(f"Successfully unlinked 
 def print_event_creation_success(event_name, player_id, match_id): print(f"Successfully created event '{event_name}' for player {player_id} in match {match_id}.")
 def invalid_input():print("Invalid input. Please try again.")
 def print_welcome(): print("\n--->>Welcome to the BasketBall League<<---")
-
+def print_stadium_creation_success(name): print(f"Stadium '{name}' created successfully.")
+def print_stadium_deletion_success(stadium_id): print(f"Stadium with ID {stadium_id} deleted successfully.")
 
 
 def get_admin_username_input():
@@ -417,3 +428,30 @@ def get_new_admin_credentials():
 
 def print_admin_creation_success(username): print(f"Admin user '{username}' added successfully.")
 def print_admin_removal_success(username): print(f"Admin user '{username}' removed successfully.")
+
+def get_stadium_info_input():
+    """Prompts user for new stadium details."""
+    print("\nEnter new stadium details (leave name blank to cancel):")
+    name = input("Name: ").strip()
+    if not name:
+        return None
+    location = input("Location: ").strip()
+    capacity = input("Capacity: ").strip()
+    while not capacity.isdigit():
+        print("Capacity must be a valid number.")
+        capacity = input("Capacity: ").strip()
+    return {"name": name, "location": location, "capacity": int(capacity)}
+
+def display_stadiums_paginated(stadiums):
+    """Displays a paginated list of stadiums."""
+    if not stadiums:
+        print("No more stadiums found.")
+        return
+
+    print(f"{'ID':<10}{'Name':<30}{'Location':<20}{'Capacity':<10}")
+    for stadium in stadiums:
+        print(f"{stadium['id']:<10}{stadium['name']:<30}{stadium['location']:<20}{stadium['capacity']:<10}")
+    print("")
+
+
+

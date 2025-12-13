@@ -30,7 +30,7 @@ def query(sql, params=()):
             cols = [d[0] for d in cur.description]
             for row in cur.fetchall():
                 returnable.append(dict(zip(cols, row)))
-            return returnable               #epistrefei array pou se kathe thesi exei ena leksiko me key to id 
+                return returnable
     
 
 def get_persons(limit=0):
@@ -76,7 +76,7 @@ def get_match(match_id):
     return query("SELECT * FROM `Match` WHERE id = %s;", (match_id,))
 
 def get_matches_by_team(team_id ,offset):
-    return (query("SELECT name FROM Team WHERE id = %s;", (team_id,)), #onoma omadas
+        return (query("SELECT name FROM Team WHERE id = %s;", (team_id,)),
             query("""
                 SELECT
                     m.id, m.match_date,
@@ -88,7 +88,7 @@ def get_matches_by_team(team_id ,offset):
                 WHERE m.home_team_id = %s OR m.away_team_id = %s
                 ORDER BY m.match_date DESC
                 LIMIT 10 OFFSET %s;
-            """, (team_id, team_id, offset*10))) #agwnes
+            """, (team_id, team_id, offset*10)))
 
 def get_referees_in_match(match_id):
     return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = r.id WHERE match_id = %s;", (match_id,))
@@ -181,8 +181,43 @@ def execute_insert_and_get_id(sql, params=()):
 def create_season(year):
     return execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
 
-def create_stadium(name, capacity):
-    return execute_cud("INSERT INTO Stadium (name, capacity) VALUES (%s, %s);", (name, capacity))
+def create_stadium(name, location, capacity):
+    return execute_cud("INSERT INTO Stadium (name, location, capacity) VALUES (%s, %s, %s);", (name, location, capacity))
+
+def unlink_team_home_stadium(team_id, round_id):
+    """Unlink a team's stadium for a specific round (remove the history entry)."""
+    sql = "DELETE FROM Team_stadium WHERE team_id = %s AND round_id = %s;"
+    return execute_cud(sql, (team_id, round_id))
+
+
+def update_team_home_stadium(team_id, stadium_id, round_id):
+    """Link a team to a stadium for a specific round.
+
+    This inserts or updates the Team_stadium mapping for the given round.
+    """
+    sql = (
+        "INSERT INTO Team_stadium (team_id, stadium_id, round_id) VALUES (%s, %s, %s) "
+        "ON DUPLICATE KEY UPDATE stadium_id = VALUES(stadium_id);"
+    )
+    return execute_cud(sql, (team_id, stadium_id, round_id))
+
+
+def get_team_stadiums(team_id, offset=0, limit=10):
+    """Return paginated list of stadium assignments for a team, newest first.
+
+    Each row contains stadium id, name, location and the round and season it was linked for.
+    """
+    sql = """
+        SELECT ts.stadium_id, s.name AS stadium_name, s.location, r.id AS round_db_id, r.round_id, p.year, p.phase_id
+        FROM Team_stadium ts
+        JOIN Stadium s ON ts.stadium_id = s.id
+        JOIN `Round` r ON ts.round_id = r.id
+        JOIN `Phase` p ON r.phase_id = p.id
+        WHERE ts.team_id = %s
+        ORDER BY p.year DESC, p.phase_id DESC, r.round_id DESC
+        LIMIT %s OFFSET %s
+    """
+    return query(sql, (team_id, limit, offset * limit))
 
 def create_person(first_name, last_name, speciality):
     return execute_cud("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);", (first_name, last_name, speciality))
@@ -229,7 +264,7 @@ def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):
 def create_entry(table_name,list_user_input):
     col_names = return_attributes(table_name)
     columns_str = ", ".join(col_names) 
-    placeholders = ", ".join(["%s"] * len(list_user_input)) #tha prepei na ta dinoume me thn swsth seira sto controller
+    placeholders = ", ".join(["%s"] * len(list_user_input))
     sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
     return execute_cud(sql, list_user_input)
 
@@ -300,7 +335,7 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
             """
             params = [player_id, f"{shot_type} Made", f"{shot_type} Attempt"]
 
-            if match_id:                            # An match_id = none einai gia ola ta matches
+            if match_id:
                 sql += " AND ec.match_id = %s"
                 params.append(match_id)
 
@@ -423,7 +458,7 @@ def calculate_standings_for_phase(phase_id):
         ORDER BY wins DESC;
     """
     standings = query(sql, (phase_id,))
-    # Convert Decimal to int for consistency
+    
     for team_stats in standings:
         team_stats['wins'] = int(team_stats['wins'])
         team_stats['losses'] = int(team_stats['losses'])
@@ -530,14 +565,9 @@ def get_rounds(limit=0):
     
     return query(sql, params)
 
-def get_stadiums(limit=0):
-    sql = "SELECT id, name FROM stadium"
-    params = []
-    if limit != 0:
-        sql += " LIMIT %s"
-        params.append(limit)
-    
-    return query(sql, params)
+def get_stadiums(offset=0, limit=10):
+    sql = "SELECT id, name, location, capacity FROM stadium LIMIT %s OFFSET %s"
+    return query(sql, (limit, offset * limit))
 
 def get_rounds_by_phase(phase_id):
     return query("SELECT * FROM Round WHERE phase_id = %s ORDER BY id", (phase_id,))
@@ -557,8 +587,8 @@ def get_person_attributes():
 def create_player(player_data):
     try:
         with get_connection() as con:
-            con.begin() # Start a transaction
-            # Insert into Person table
+            con.begin()
+            
             person_attributes = get_person_attributes()
             person_data = {key: player_data[key] for key in person_attributes if key in player_data}
             columns = ", ".join(person_data.keys())
@@ -673,6 +703,31 @@ def delete_match_event(event_creation_id):
     """Deletes a specific event instance from the Event_Creation table."""
     sql = "DELETE FROM Event_Creation WHERE id = %s"
     return execute_cud(sql, (event_creation_id,))
+
+
+def delete_stadium(stadium_id):
+    """Deletes a stadium only if it is not linked to any team (Team_stadium entries).
+
+    Returns True on success, False if stadium is still linked to a team or on DB error.
+    """
+    
+    with get_connection() as con:
+        with con.cursor() as cur:
+            cur.execute("SELECT 1 FROM Team_stadium WHERE stadium_id = %s LIMIT 1", (stadium_id,))
+            if cur.fetchone():
+                return False
+            
+            cur.execute("SELECT 1 FROM `Match` WHERE stadium_id = %s LIMIT 1", (stadium_id,))
+            if cur.fetchone():
+                return False
+
+    
+    return execute_cud("DELETE FROM Stadium WHERE id = %s;", (stadium_id,))
+
+
+def update_match_stadium(match_id, stadium_id):
+    """Update the stadium assigned to a match."""
+    return execute_cud("UPDATE `Match` SET stadium_id = %s WHERE id = %s;", (stadium_id, match_id))
 
 def drop_all_defined_indexes():
     """

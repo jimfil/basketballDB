@@ -44,9 +44,7 @@ def handle_pagination(data_fetcher, display_function, *args):
             print_no_more_found("items")
             return None
 
-        # Collect IDs if the result items are selectable
         if results and isinstance(results[0], (dict, tuple, list)) and len(results[0]) > 0:
-            # Handle dicts with 'id' or tuples/lists where id is the first/second element
             if isinstance(results[0], dict) and 'id' in results[0]:
                 all_ids.update(r['id'] for r in results)
 
@@ -87,7 +85,7 @@ def handle_pagination_view_only(data_fetcher, display_function, *args):
 
 def find_playerstats(player_id):
     if not player_id:
-        return # User quit selection
+        return
     handle_pagination_view_only(lambda page: get_player_stats(player_id, offset=page), display_player_stats)
 
 def view_teams():
@@ -106,15 +104,10 @@ def find_matches_for_team():
     if not team_id:
         return 
 
-    team_name, _ = get_matches_by_team(team_id, 0) # Fetch team name
+    team_name, _ = get_matches_by_team(team_id, 0)
     page = 0
-    print_select_from_list("match") # This is a view function, so it's OK.
+    print_select_from_list("match")
 
-    # Custom fetcher for matches as it returns a tuple (team_name, matches)
-    # The generic paginator expects a list of items.
-    
-    
-    
     match_fetcher = lambda page: get_matches_by_team(team_id, page)[1]
     display_func = lambda matches: display_matches_for_team(team_name, matches)
 
@@ -130,7 +123,6 @@ def find_matchstats(match_id):
     start = time.time()
     get_match_stats(match_id)
     end = time.time()
-    print(f"Seconds elapsed for sql statement with indexes:{end - start}")
 
 def select_player():
     team_id = select_team_for_action()
@@ -157,27 +149,22 @@ def cmd_create_season_with_phases():
         print_operation_cancelled()
         return
 
-    # 1. Create Season
     if not create_season(year):
         print_season_creation_failed(year)
         return
     print_season_creation_success(year)
 
-    # 2. Create Phases (Group Stage and Knockout)
-    group_stage_phase_id = create_phase(year, 1)  # phase_id 1 for Group Stage
-    knockout_phase_id = create_phase(year, 2)  # phase_id 2 for Knockout
+    group_stage_phase_id = create_phase(year, 1)
+    knockout_phase_id = create_phase(year, 2)
     print_phases_creation_success()
 
-    # 3. Create Rounds for both phases
     rounds_created = False
     if group_stage_phase_id:
-        # Group stage has 5 rounds (for a 6-team group round-robin)
         for round_num in range(1, 6):
             create_round(round_num, group_stage_phase_id)
         rounds_created = True
 
     if knockout_phase_id:
-        # Knockout has 4 rounds (R16, QF, SF, Finals)
         for round_num in range(1, 5):
             create_round(round_num, knockout_phase_id)
         rounds_created = True
@@ -185,16 +172,15 @@ def cmd_create_season_with_phases():
     if rounds_created:
         print_rounds_creation_success()
 
-def cmd_create_events_in_match(): #This is the function that is being changed
+def cmd_create_events_in_match():
     """Controller to create one or more events for a selected match."""
     match_id = select_match()
     if not match_id:
         return print_operation_cancelled()
-
-    # Fetch match details to get team names and IDs
+    
+    match_details_list = get_match(match_id)
     match_details_list = get_match(match_id)
     if not match_details_list:
-        print("Match details could not be found.")
         return
     match_details = match_details_list[0]
     home_team_id = match_details['home_team_id']
@@ -203,9 +189,9 @@ def cmd_create_events_in_match(): #This is the function that is being changed
     away_team_name = get_team_name(away_team_id)[0]['name']
 
     while True:
-        print(f"\n--- Creating Event for Match ID: {match_id} ---")
         
-        # 1. Select Team from the match
+        
+        
         team_choice = get_menu_choice(
             "Select the team for the event:",
             {"1": f"Home: {home_team_name}", "2": f"Away: {away_team_name}"}
@@ -215,25 +201,25 @@ def cmd_create_events_in_match(): #This is the function that is being changed
         
         selected_team_id = home_team_id if team_choice == '1' else away_team_id
 
-        # 2. Select Player from that team
+        
         print_select_from_list("player involved in the event")
         player_id = handle_pagination(lambda page: get_players(selected_team_id, offset=page), display_players_paginated)
         if not player_id:
-            break # Exit event creation loop
+            break
 
-        # 3. Select Event Type
+        
         print_select_from_list("event type")
         all_events = get_all_events()
         event_id = handle_pagination(lambda page: all_events, display_event_types)
         if not event_id:
-            break # Exit event creation loop
+            break
 
-        # 4. Get Game Time
+        
         game_time = get_game_time_input()
         if not game_time:
-            break # Exit event creation loop
+            break
 
-        # 5. Create Event
+        
         if create_match_event(match_id, player_id, event_id, game_time):
             event_name = next((e['name'] for e in all_events if e['id'] == event_id), "Unknown")
             print_event_creation_success(event_name, player_id, match_id)
@@ -262,6 +248,21 @@ def cmd_create_player_for_team():
     else:
         print_creation_failed("player", f"{player_info['first_name']} {player_info['last_name']}")
 
+def select_stadium():
+    print_select_from_list("stadium")
+    return handle_pagination(lambda page: get_stadiums(offset=page), display_stadiums_paginated)
+
+def cmd_create_stadium():
+    info = get_stadium_info_input()
+    if not info:
+        print_operation_cancelled()
+        return
+    if create_stadium(info['name'], info['location'], info['capacity']):
+        print_stadium_creation_success(info['name'])
+    else:
+        print_creation_failed("stadium", info['name'])
+
+
 def cmd_update_player_info():
     """Controller to update a player's information."""
     player_id = select_player()
@@ -277,10 +278,8 @@ def cmd_update_player_info():
     changes = get_updated_player_info_input(current_details)
 
     if not changes:
-        print("No changes were made.")
         return
 
-    # Separate changes for Person table and Person_Team table
     person_changes = {k: v for k, v in changes.items() if k in ['first_name', 'last_name']}
     shirt_num_change = changes.get('shirt_num')
 
@@ -302,14 +301,58 @@ def cmd_update_team_info():
     """Controller to update a team's name."""
     team_id = select_team_for_action()
     if not team_id:
-        print_operation_cancelled()
-        return
+         print_operation_cancelled()
+         return
+    choice = get_menu_choice("Select what to update:", {"1": "Team Name", "2": "Home Stadium"})
 
-    new_name = get_new_team_name_input()
-    if update_entry('Team', team_id, {'name': new_name}):
-        print_update_success(f"Team {team_id}'s name")
-    else:
-        print_update_failed(f"team {team_id}'s name")
+    if choice == "1":
+        new_name = get_new_team_name_input()
+        if not new_name or new_name == 'q':
+            print_operation_cancelled()
+            return
+        if update_entry('Team', team_id, {'name': new_name}):
+            print_update_success(f"Team {team_id}'s name")
+        else:
+            print_update_failed(f"team {team_id}'s name")
+    elif choice == "2":
+        
+        year = get_year()
+        if not year:
+            print_operation_cancelled()
+            return
+
+        phases = get_phases_by_season(year)
+        if not phases:
+            print_no_phases_found()
+            return
+
+        logical_phase_id = get_phase_selection(phases)
+        if logical_phase_id is None:
+            print_operation_cancelled()
+            return
+
+        
+        phase_db_id = next((p['id'] for p in phases if p['phase_id'] == logical_phase_id), None)
+        if phase_db_id is None:
+            print_operation_cancelled()
+            return
+
+        rounds = get_rounds_by_phase(phase_db_id)
+        round_db_id = get_round_selection(rounds)
+        if not round_db_id:
+            print_operation_cancelled()
+            return
+
+        
+        stadium_id = select_stadium()
+        if not stadium_id:
+            print_operation_cancelled()
+            return
+
+        if update_team_home_stadium(team_id, stadium_id, round_db_id):
+            print_update_success("Team Stadium")
+        else:
+            print_update_failed("Team Stadium")
 
 def cmd_update_referee_info():
     """Controller to update a referee's information."""
@@ -325,7 +368,6 @@ def cmd_update_referee_info():
     changes = get_updated_referee_info_input(current_details)
 
     if not changes:
-        print("No changes were made.")
         return
 
     if update_entry('Referee', referee_id, changes):
@@ -335,19 +377,19 @@ def cmd_update_referee_info():
 
 def cmd_delete_player():
     """Controller to delete a player and their related records."""
-    player_id = select_player() # select_player already uses the correct selection logic
+    player_id = select_player() 
     if not player_id:
         print_operation_cancelled()
         return
     
-    # Add confirmation step
+    
     confirmation_id_str = get_delete_confirmation_input("Player", player_id)
     if not confirmation_id_str.isdigit() or int(confirmation_id_str) != player_id:
         print_confirmation_failed()
         return
 
-    # Proceed with deletion if confirmation is successful
-    if delete_player(player_id): # This now deletes the player and their events via CASCADE
+    
+    if delete_player(player_id): 
         print_delete_success("Player", player_id)
     else:
         print_delete_failed("Player", player_id, "An unexpected database error occurred.")
@@ -359,6 +401,11 @@ def cmd_delete_team():
         print_operation_cancelled()
         return
     
+    confirmation_id_str = get_delete_confirmation_input("Team", team_id)
+    if not confirmation_id_str.isdigit() or int(confirmation_id_str) != team_id:
+        print_confirmation_failed()
+        return
+
     if delete_team(team_id):
         print_delete_success("Team", team_id)
     else:
@@ -369,12 +416,12 @@ def cmd_create_match():
     from datetime import datetime
     print_create_match_header()
 
-    # 1. Choose a Season
+    
     year = get_year()
     if not year:
         return print_operation_cancelled()
 
-    # 2. Choose a Phase
+    
     phases = get_phases_by_season(year)
     if not phases:
         return print_no_phases_found()
@@ -383,18 +430,18 @@ def cmd_create_match():
     if logical_phase_id is None:
         return print_operation_cancelled()
     
-    # Find the database ID for the selected logical phase
+    
     phase_db_id = next((p['id'] for p in phases if p['phase_id'] == logical_phase_id), None)
-    if phase_db_id is None: # Should not happen if logic is correct
+    if phase_db_id is None:
         return print_operation_cancelled()
 
-    # 3. Choose a Round
+    
     rounds = get_rounds_by_phase(phase_db_id)
     round_id = get_round_selection(rounds)
     if not round_id:
         return print_operation_cancelled()
 
-    # 4. Get Date and determine Status
+    
     match_date_str = get_match_date_input(year)
     if not match_date_str:
         return print_operation_cancelled()
@@ -403,7 +450,7 @@ def cmd_create_match():
     status = 'Scheduled' if match_date_obj > datetime.now().date() else 'Completed'
     print_status_set_to(status)
 
-    # 5. Choose Teams
+    
     print_select_home_team()
     home_team_id = select_team_for_action()
     if not home_team_id:
@@ -416,10 +463,10 @@ def cmd_create_match():
             print_operation_cancelled()
             return
         if away_team_id != home_team_id:
-            break  # Valid selection
+            break  
         print_invalid_team_selection()
 
-    # 6. Create the match
+    
     match_data = {
         'home_team_id': home_team_id,
         'away_team_id': away_team_id,
@@ -441,11 +488,9 @@ def cmd_view_referees_for_match():
 
     referees = get_referees_in_match(match_id)
     if not referees:
-        print("No referees are currently linked to this match.")
         return
 
-    print(f"\n--- Referees for Match ID: {match_id} ---")
-    display_referees_paginated(referees) # Reusing this display function
+    display_referees_paginated(referees)
     input("Press [Enter] to continue...")
 
 def cmd_view_matches_for_referee():
@@ -492,10 +537,8 @@ def cmd_unlink_referee_from_match():
 
     referees = get_referees_in_match(match_id)
     if not referees:
-        print("No referees are currently linked to this match.")
         return
 
-    print("\nSelect a referee to unlink from this match:")
     display_referees_paginated(referees)
     
     valid_ids = {str(r['id']) for r in referees}
@@ -530,7 +573,7 @@ def cmd_delete_referee():
     if not referee_id:
         return print_operation_cancelled()
 
-    # Add confirmation step
+    
     confirmation_id_str = get_delete_confirmation_input("Referee", referee_id)
     if not confirmation_id_str.isdigit() or int(confirmation_id_str) != referee_id:
         print_confirmation_failed()
@@ -540,6 +583,40 @@ def cmd_delete_referee():
         print_delete_success("Referee", referee_id)
     else:
         print_delete_failed("Referee", referee_id, "An unexpected database error occurred.")
+
+
+def cmd_delete_stadium():
+    """Controller to delete a stadium — only allowed if not linked to any team."""
+    stadium_id = select_stadium()
+    if not stadium_id:
+        return print_operation_cancelled()
+
+    
+    confirmation_id_str = get_delete_confirmation_input("Stadium", stadium_id)
+    if not confirmation_id_str.isdigit() or int(confirmation_id_str) != stadium_id:
+        print_confirmation_failed()
+        return
+
+    if delete_stadium(stadium_id):
+        print_stadium_deletion_success(stadium_id)
+    else:
+        print_delete_failed("Stadium", stadium_id, "It is still linked to a team or used by matches. Unlink it first.")
+
+
+def cmd_change_match_stadium():
+    """Controller to change the stadium assigned to a match."""
+    match_id = select_match()
+    if not match_id:
+        return print_operation_cancelled()
+
+    stadium_id = select_stadium()
+    if not stadium_id:
+        return print_operation_cancelled()
+
+    if update_match_stadium(match_id, stadium_id):
+        print_update_success(f"Match {match_id} stadium")
+    else:
+        print_update_failed(f"Match {match_id} stadium")
 
 def cmd_delete_event_from_match():
     """Controller to delete a specific event from a match."""
@@ -553,6 +630,12 @@ def cmd_delete_event_from_match():
     if not event_id_to_delete:
         return print_operation_cancelled()
 
+    
+    confirmation_id_str = get_delete_confirmation_input("Event", event_id_to_delete)
+    if not confirmation_id_str.isdigit() or int(confirmation_id_str) != event_id_to_delete:
+        print_confirmation_failed()
+        return
+
     if delete_match_event(event_id_to_delete):
         print_delete_success("Event", event_id_to_delete)
     else:
@@ -564,6 +647,16 @@ def select_team_for_action():
     """
     print_select_from_list("team")
     return handle_pagination(lambda page: get_teams(page), display_teams)
+
+
+def cmd_view_team_stadiums():
+    """Controller to view a team's stadium history (paginated)."""
+    team_id = select_team_for_action()
+    if not team_id:
+        return print_operation_cancelled()
+
+    print_select_from_list("team stadium history")
+    handle_pagination_view_only(lambda page: get_team_stadiums(team_id, offset=page), display_team_stadiums)
 
 def find_player_shot_percentage(player_id, shot_type, match_id=None):
     stats = get_player_shot_stats(player_id, shot_type, match_id)
@@ -591,7 +684,7 @@ def obtain_match_scores(match_id):
     if scores:
         display_match_score(match_id, scores)
     else:
-        print(f"Match with ID {match_id} not found.")
+        return
 
 def shot_percentage_control():
     player_id = select_player()
@@ -608,7 +701,7 @@ def shot_percentage_control():
         find_player_shot_percentage(player_id, shot_map[choice])
 
 def calculate_standings(phase_id):
-    if phase_id == 1: # Assuming phase_id 1 is always group stage
+    if phase_id == 1: 
         return calculate_group_stage_standings(phase_id)
     else:
         return calculate_standings_for_phase(phase_id)
@@ -621,7 +714,8 @@ def create_menu():
             {
                 "1": "Create a new team",
                 "2": "Create a player for a team",
-                "3": "Create a new season"
+                "3": "Create a new season",
+                "4": "Create a new stadium"
             }
         )
         if choice == "1":
@@ -630,6 +724,8 @@ def create_menu():
             cmd_create_player_for_team()
         elif choice == "3":
             cmd_create_season_with_phases()
+        elif choice == "4":
+            cmd_create_stadium()
         elif choice == 'q':
             return
 
@@ -657,13 +753,16 @@ def delete_menu():
             "--- Delete Menu ---",
             {
                 "1": "Delete a Team",
-                "2": "Delete a Player"
+                "2": "Delete a Player",
+                "3": "Delete a Stadium"
             }
         )
         if choice == "1":
             cmd_delete_team()
         elif choice == "2":
             cmd_delete_player()
+        elif choice == "3":
+            cmd_delete_stadium()
         elif choice == 'q':
             return
 
@@ -676,7 +775,8 @@ def matches_events_menu():
                 "1": "Create a new match",
                 "2": "Manage Referees",
                 "3": "Create events in a match",
-                "4": "Delete an event from a match"
+                "4": "Delete an event from a match",
+                "5": "Change match stadium"
             }
         )
         if choice == "1":
@@ -687,6 +787,8 @@ def matches_events_menu():
             cmd_create_events_in_match()
         elif choice == "4":
             cmd_delete_event_from_match()
+        elif choice == "5":
+            cmd_change_match_stadium()
         elif choice == 'q':
             return
 
@@ -705,7 +807,7 @@ def referee_menu():
                 "7": "Update Referee Information"
             }
         )
-        if choice == 'q': return # This menu already had the correct 'q' check
+        if choice == 'q': return
         if choice == "1":
             cmd_link_referee_to_match()
         elif choice == "2":
@@ -735,7 +837,7 @@ def management_menu():
                 "6": "Remove admin user"
             }
         )
-        if choice == 'q': return # This menu already had the correct 'q' check
+        if choice == 'q': return
         if choice == "1":
             create_menu()
         elif choice == "2":
@@ -797,7 +899,7 @@ def view_menu():
     while True:
         choice = get_menu_choice(
             "--- View Menu ---",
-            {"1": "View League by Season", "2": "View Teams", "3": "View All Matches"}
+            {"1": "View League by Season", "2": "View Teams", "3": "View All Matches", "4": "View Team Stadium History"}
         )
         if choice == 'q': return 
         if choice == "1":
@@ -806,6 +908,8 @@ def view_menu():
             view_teams() 
         elif choice == "3":
             cmd_view_all_matches()
+        elif choice == "4":
+            cmd_view_team_stadiums()
     
 def league_menu():
     year_id = get_year()
@@ -825,7 +929,7 @@ def league_menu():
             standings = calculate_group_stage_standings(group_phase['id'])
             end = time.time()
             display_standings(standings, is_group_stage=True)
-            print(f"Seconds elapsed for sql statement with indexes:{end - start}")
+            
 
 
         elif index == "2":
@@ -849,9 +953,9 @@ def stats_menu():
         if choice == 'q': return 
         index = int(choice)
         if index == 1:
-            find_playerstats(select_player()) # select_player uses select_team_for_action
-        elif index == 2:                # dialegw omada -> blepw agwnes (Omada 1 - Omada 2) (73 - 68 )
-            find_matches_for_team() # find_matches_for_team uses select_team_for_action
+            find_playerstats(select_player())
+        elif index == 2:
+            find_matches_for_team()
         elif index == 3:
             shot_percentage_control()
         elif index == 4:
@@ -867,7 +971,6 @@ def stats_menu():
 
 def main_menu(index):
     if index==1:
-        # Require admin login for Management Menu
         if admin_login_menu():
             management_menu()
     elif index==2: view_menu()
@@ -892,12 +995,8 @@ def check_time():
     end_idx = time.time()
     time_idx = end_idx - start_idx
 
-    print(f"No Indexes:  {time_no_idx:.4f} s")
-    print(f"With Indexes: {time_idx:.4f} s")
-    
     if time_idx > 0:
         speedup = time_no_idx / time_idx
-        print(f"Improvement: {speedup:.2f}x faster")
 
 
 if __name__ == "__main__":

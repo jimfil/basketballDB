@@ -106,7 +106,7 @@ CREATE TABLE `Event_Creation` (
   `event_id` int,
   `real_time` timestamp DEFAULT CURRENT_TIMESTAMP,
   `game_time` timestamp,
-  FOREIGN KEY (`match_id`) REFERENCES `Match` (`id`),
+  FOREIGN KEY (`match_id`) REFERENCES `Match` (`id`) ON DELETE CASCADE,
   FOREIGN KEY (`person_id`) REFERENCES `Person` (`id`) ON DELETE CASCADE,
   FOREIGN KEY (`event_id`) REFERENCES `Event` (`id`)
 );

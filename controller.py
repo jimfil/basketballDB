@@ -44,8 +44,9 @@ def handle_pagination(data_fetcher, display_function, *args):
             print_no_more_found("items")
             return None
 
+
         if results and isinstance(results[0], (dict, tuple, list)) and len(results[0]) > 0:
-            if isinstance(results[0], dict) and 'id' in results[0]:
+            if 'id' in results[0]:
                 all_ids.update(r['id'] for r in results)
 
         display_function(results)
@@ -603,6 +604,24 @@ def cmd_delete_stadium():
         print_delete_failed("Stadium", stadium_id, "It is still linked to a team or used by matches. Unlink it first.")
 
 
+def cmd_delete_match():
+    """Controller to delete a match with double confirmation."""
+    match_id = select_match()
+    if not match_id:
+        return print_operation_cancelled()
+
+    confirmation_id_str = get_delete_confirmation_input("Match", match_id)
+    if not confirmation_id_str.isdigit() or int(confirmation_id_str) != match_id:
+        print_confirmation_failed()
+        return
+
+    
+    if delete_match(match_id):
+        print_delete_success("Match", match_id)
+    else:
+        print_delete_failed("Match", match_id, "An unexpected database error occurred.")
+
+
 def cmd_change_match_stadium():
     """Controller to change the stadium assigned to a match."""
     match_id = select_match()
@@ -754,7 +773,8 @@ def delete_menu():
             {
                 "1": "Delete a Team",
                 "2": "Delete a Player",
-                "3": "Delete a Stadium"
+                "3": "Delete a Stadium",
+                "4": "Delete a Match"
             }
         )
         if choice == "1":
@@ -763,6 +783,8 @@ def delete_menu():
             cmd_delete_player()
         elif choice == "3":
             cmd_delete_stadium()
+        elif choice == "4":
+            cmd_delete_match()
         elif choice == 'q':
             return
 

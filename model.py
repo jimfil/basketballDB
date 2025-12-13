@@ -30,7 +30,7 @@ def query(sql, params=()):
             cols = [d[0] for d in cur.description]
             for row in cur.fetchall():
                 returnable.append(dict(zip(cols, row)))
-                return returnable
+            return returnable
     
 
 def get_persons(limit=0):
@@ -703,6 +703,24 @@ def delete_match_event(event_creation_id):
     """Deletes a specific event instance from the Event_Creation table."""
     sql = "DELETE FROM Event_Creation WHERE id = %s"
     return execute_cud(sql, (event_creation_id,))
+
+
+def delete_match(match_id):
+    """Delete a match and its related records (referees, events) in a transaction.
+
+    Returns True on success, False on failure.
+    """
+    try:
+        with get_connection() as con:
+            con.begin()
+            with con.cursor() as cur:
+                cur.execute("DELETE FROM Match_Referee WHERE match_id = %s", (match_id,))
+                cur.execute("DELETE FROM Event_Creation WHERE match_id = %s", (match_id,))
+                cur.execute("DELETE FROM `Match` WHERE id = %s", (match_id,))
+            con.commit()
+            return True
+    except pymysql.Error:
+        return False
 
 
 def delete_stadium(stadium_id):

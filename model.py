@@ -44,9 +44,10 @@ def get_persons(limit=0):
 
 def get_players(team_id, offset=0, limit=10):
     """Fetches players for a given team, paginated. Returns a list of dictionaries."""
-    sql ='''SELECT p.speciality, p.id, p.first_name, p.last_name, pt.shirt_num, pt.team_id
+    sql ='''SELECT p.speciality, p.id, p.first_name, p.last_name, pt.shirt_num, pt.team_id, t.name
             FROM person as p
             JOIN person_team as pt ON p.id = pt.person_id
+            JOIN team as t ON pt.team_id = t.id
             WHERE pt.team_id = %s
             LIMIT %s OFFSET %s'''
     params = (team_id, limit, offset * limit)

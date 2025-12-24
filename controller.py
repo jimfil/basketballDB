@@ -824,9 +824,7 @@ def referee_menu():
                 "2": "Unlink a referee from a match",
                 "3": "Create a new referee",
                 "4": "Delete a referee",
-                "5": "View referees for a match",
-                "6": "View matches for a referee",
-                "7": "Update Referee Information"
+                "5": "Update Referee Information"
             }
         )
         if choice == 'q': return
@@ -839,10 +837,6 @@ def referee_menu():
         elif choice == "4":
             cmd_delete_referee()
         elif choice == "5":
-            cmd_view_referees_for_match()
-        elif choice == "6":
-            cmd_view_matches_for_referee()
-        elif choice == "7":
             cmd_update_referee_info()
 
 def management_menu():
@@ -921,7 +915,9 @@ def view_menu():
     while True:
         choice = get_menu_choice(
             "--- View Menu ---",
-            {"1": "View League by Season", "2": "View Teams", "3": "View All Matches", "4": "View Team Stadium History"}
+            {"1": "View League by Season", "2": "View Teams", "3": "View All Matches", "4": "View Team Stadium History",
+             "5": "View referees for a match",
+            "6": "View matches for a referee",}
         )
         if choice == 'q': return 
         if choice == "1":
@@ -932,6 +928,10 @@ def view_menu():
             cmd_view_all_matches()
         elif choice == "4":
             cmd_view_team_stadiums()
+        elif choice == "5":
+            cmd_view_referees_for_match()
+        elif choice == "6":
+            cmd_view_matches_for_referee()
     
 def league_menu():
     year_id = get_year()

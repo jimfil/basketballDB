@@ -13,7 +13,7 @@ def index():
 
 @public_bp.route('/teams')
 def teams():
-    all_teams = get_teams(limit=100) # Get all teams
+    all_teams = get_teams(limit=100) # Get all teams fix with pagination
     return render_template('public/teams.html', teams=all_teams)
 
 @public_bp.route('/matches')
@@ -60,17 +60,6 @@ def mvp_stats(year):
 
 @public_bp.route('/teams/<int:id>')
 def team_roster(id):
-    db_conn = db.get_db()
-    cursor = db_conn.cursor(dictionary=True)
-    
-    cursor.execute("SELECT * FROM Team WHERE id = %s", (id,))
-    team = cursor.fetchone()
-    
-    if not team:
-        abort(404)
 
-    players = get_players(id)
-    
-    cursor.close()
-    
-    return render_template('public/team_roster.html', team=team, players=players)
+    players = get_players(id)    
+    return render_template('public/team_roster.html', team=players, players=players)

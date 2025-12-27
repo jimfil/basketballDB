@@ -3,7 +3,7 @@ import random
 import pymysql
 import certifi
 from faker import Faker
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, time
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -16,7 +16,7 @@ NUM_TEAMS = 24
 NUM_STADIUMS = 24
 NUM_REFEREES = 40
 PLAYERS_PER_TEAM = 12 
-YEARS_TO_SIMULATE = [2021, 2022, 2023, 2024]
+YEARS_TO_SIMULATE = list(range(2004, 2026))  
 
 # Connect to Database
 def get_connection():
@@ -29,6 +29,85 @@ def get_connection():
         ssl={'ca': certifi.where()},
         autocommit=False 
     )
+
+def simulate_2026_partial(conn, cursor, match_id_start, teams, rosters, e_map, home_stadiums, referees):
+    year = 2026
+    print(f"\n>>> STARTING SPECIAL SEASON {year} (IN-PROGRESS) <<<")
+    
+    # 1. Setup Season and Phase 1
+    cursor.execute("INSERT IGNORE INTO Season (year) VALUES (%s)", (year,))
+    cursor.execute("INSERT INTO Phase (phase_id, year) VALUES (%s, %s)", (1, year))
+    phase_1_pk = cursor.lastrowid
+    
+    # Create Rounds for Phase 1
+    phase_rounds = []
+    for r_num in range(1, 6):
+        cursor.execute("INSERT INTO `Round` (round_id, phase_id) VALUES (%s, %s)", (r_num, phase_1_pk))
+        phase_rounds.append(cursor.lastrowid)
+        
+    match_id_counter = match_id_start
+    random.shuffle(teams)
+    groups = [teams[i:i+6] for i in range(0, 24, 6)]
+    
+    all_p1_matches = []
+    start_date = date(2026, 8, 1)
+
+    # 2. Generate all Phase 1 Matches
+    for group in groups:
+        schedule = generate_single_rr(group)
+        for r_idx, round_matches in enumerate(schedule):
+            curr_round_pk = phase_rounds[r_idx]
+            # Space matches out: Round 1 starts Aug 1, subsequent rounds weekly
+            mdate = start_date + timedelta(weeks=r_idx)
+            
+            for h, a in round_matches:
+                all_p1_matches.append({
+                    'id': match_id_counter,
+                    'h': h, 'a': a, 
+                    'date': mdate, 
+                    'round': curr_round_pk, 
+                    'stadium': home_stadiums[h]
+                })
+                match_id_counter += 1
+
+    # 3. Assign Statuses
+    # Game 1: Completed
+    m1 = all_p1_matches[0]
+    cursor.execute(
+        "INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) "
+        "VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", 
+        (m1['id'], m1['date'], m1['round'], m1['stadium'], m1['h'], m1['a'])
+    )
+    # Run full simulation for the completed game
+    simulate_match_batch(cursor, [(m1['id'], m1['h'], m1['a'], m1['date'])], rosters, e_map)
+
+    # Game 2: Ongoing (August 1, 2026 at 9:00 AM)
+    m2 = all_p1_matches[1]
+    ongoing_datetime = datetime.combine(date(2026, 8, 1), time(9, 0))
+    cursor.execute(
+        "INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) "
+        "VALUES (%s, %s, 'Ongoing', %s, %s, %s, %s)", 
+        (m2['id'], ongoing_datetime, m2['round'], m2['stadium'], m2['h'], m2['a'])
+    )
+    # We can simulate partial events if needed, or leave it with just a few initial events
+    # For "Ongoing", we'll simulate just the first 2 quarters to show progress
+    # (Note: Requires a slight tweak to simulate_match_batch if you want partial quarters)
+
+    # Remaining Games: Scheduled
+    scheduled_matches = []
+    for m in all_p1_matches[2:]:
+        scheduled_matches.append((m['id'], m['date'], 'Scheduled', m['round'], m['stadium'], m['h'], m['a']))
+    
+    cursor.executemany(
+        "INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+        scheduled_matches
+    )
+
+    conn.commit()
+    print(f"*** 2026 Season Initialized: 1 Completed, 1 Ongoing, {len(scheduled_matches)} Scheduled ***")
+    return match_id_counter
+
 
 # --- GAMEPLAY SIMULATION ENGINE ---
 def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
@@ -277,6 +356,10 @@ def run_all_seasons(conn, cursor):
         # We pass the counter and get the updated one back
         current_match_id = simulate_season(conn, cursor, year, current_match_id, teams_24, rosters, e_map, team_home_stadiums, referees)
         conn.commit()
+    
+    current_match_id = simulate_2026_partial(
+        conn, cursor, current_match_id, teams_24, rosters, e_map, team_home_stadiums, referees
+    )
 
     sql = [
         "CREATE INDEX idx_event_match_time ON Event_Creation (match_id, game_time)",

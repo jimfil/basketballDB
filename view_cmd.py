@@ -19,9 +19,13 @@ def get_menu_choice(title, options, quit_text="Go Back"):
 def display_shot_percentage_menu():
     return get_menu_choice("Select Shot Type", {"1": "Free Throws", "2": "2 Point Shoots", "3": "3 Point Shoots"})
 
-def display_years(years):
-    print("Seasons:")
-    for year in years: print(year)
+def display_years(seasons):
+    if not seasons:
+        print("No more seasons found.")
+        return
+    print(f"{'Year':<10}")
+    for season in seasons:
+        print(f"{season['year']:<10}")
 
 
 def display_standings(standings_list, is_group_stage=False):
@@ -452,6 +456,3 @@ def display_stadiums_paginated(stadiums):
     for stadium in stadiums:
         print(f"{stadium['id']:<10}{stadium['name']:<30}{stadium['location']:<20}{stadium['capacity']:<10}")
     print("")
-
-
-

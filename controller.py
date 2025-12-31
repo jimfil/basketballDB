@@ -900,15 +900,8 @@ def cmd_remove_admin_user():
             print_removal_failed("admin user", username)
 
 def get_year():
-    giwrgos = get_seasons()
-    lista = [item["year"] for item in giwrgos]
-    display_years(lista)
-    while True: 
-        year_id = get_year_input() 
-        if year_id.lower() == 'q': return None 
-        if int(year_id) in lista: break
-        invalid_input()
-    return year_id
+    print_select_from_list("season")
+    return handle_pagination(lambda page: get_seasons(offset=page), display_years)
 
 def view_menu():
     """Handles the sub-menu for viewing league and teams."""
@@ -1020,6 +1013,11 @@ def check_time():
     if time_idx > 0:
         speedup = time_no_idx / time_idx
 
+    print("Speed Test Results:")
+    print(f"Without Indexes: {time_no_idx:.4f} seconds")
+    print(f"With Indexes: {time_idx:.4f} seconds")
+    if time_idx > 0:
+        print(f"Speedup: {speedup:.2f}x")
 
 if __name__ == "__main__":
     print_welcome()

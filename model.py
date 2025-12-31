@@ -67,8 +67,14 @@ def get_teams(offset=0, limit=10):
 def get_matches():
     return query("SELECT * FROM `match`;")
 
-def get_seasons():
-    return query("SELECT * FROM season order by year desc;")
+def get_seasons(offset=0, limit=10):
+    sql = "SELECT year as id, year FROM season ORDER BY year DESC"
+    params = []
+    if limit != 0:
+        sql += " LIMIT %s OFFSET %s"
+        params.extend([limit, offset * limit])
+    
+    return query(sql, params)
 
 def get_matches_by_round(round_id):
     return query("SELECT id as match_id, home_team_id, away_team_id, match_date, status FROM `Match` WHERE round_id = %s;", (round_id,))

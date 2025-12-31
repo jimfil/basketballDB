@@ -299,8 +299,11 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                         log(pi, 'Substitution', current_time)
 
         while scores['home'] == scores['away']:
-            scores[random.choice(['home', 'away'])] += 2
-        
+            winning_side = random.choice(['home', 'away'])
+            scores[winning_side] += 2
+            
+            scorer = random.choice(list(on_court[winning_side]))
+            log(scorer, '2-Point Field Goal Made', end_time)
         winner = home_id if scores['home'] > scores['away'] else away_id
         loser = away_id if winner == home_id else home_id
         

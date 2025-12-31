@@ -23,7 +23,7 @@ def matches():
 
 @public_bp.route('/standings')
 def standings_index():
-    seasons = get_seasons()
+    seasons = get_seasons(limit=100)
     return render_template('public/standings_index.html', seasons=seasons)
 
 @public_bp.route('/standings/<int:year>')

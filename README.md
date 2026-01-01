@@ -8,16 +8,27 @@ Repository Structure
 
 basketballDB/
 ├── basketball_league_web/ # Web UI for browsing league data
+
 ├── controller.py # Command-line controller (MAIN FILE)
+
 ├── db.py # Database connection and helper functions
+
 ├── init_db.py # Database initialization script
+
 ├── matchDB.sql # SQL schema & sample data
+
 ├── model.py # Data models and ORM definitions
+
 ├── populate_huge.py # Script to generate large dataset
+
 ├── view_cmd.py # Command-line view utilities
+
 ├── requirements.txt # Python dependencies
+
 ├── pyproject.toml # Build & metadata
+
 ├── .gitignore
+
 └── .gitattributes
 
 ## Installation

@@ -45,7 +45,7 @@ try:
     
     conn.commit()
     print("SUCCESS! Your schema has been loaded into TiDB.")
-    print("Creating an admin 🥸🗣️🐾🧔🏿‍♀️🧔🏿‍♀️🧔🏿‍♀️")
+    print("Creating an admin!")
     sql = f"INSERT INTO admin (username, password) VALUES ('admin', '{password_hash}');"
     try:
         cursor.execute(sql)

@@ -6,3 +6,4 @@ flask_login
 flask_bcrypt
 pymysql
 certifi
+gunicorn

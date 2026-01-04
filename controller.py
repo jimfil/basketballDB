@@ -129,6 +129,10 @@ def handle_pagination_view_only(data_fetcher, display_function, *args):
             invalid_input()
 
 def find_playerstats(player_id):
+    """
+    Retrieves and displays statistics for a specific player.
+    - player_id: The ID of the player to fetch stats for.
+    """
     if not player_id:
         return
     handle_pagination_view_only(lambda page: get_player_stats(player_id, offset=page), display_player_stats)
@@ -145,6 +149,10 @@ def cmd_view_all_matches():
     handle_pagination_view_only(lambda page: get_all_matches_with_names(offset=page), display_all_matches)
 
 def find_matches_for_team():
+    """
+    Controller to find and display matches for a selected team.
+    Allows the user to select a match to view detailed stats.
+    """
     team_id = select_team_for_action()
     if not team_id:
         return 
@@ -161,6 +169,10 @@ def find_matches_for_team():
         find_matchstats(selected_match_id)
 
 def find_matchstats(match_id):
+    """
+    Retrieves and displays statistics for a specific match.
+    - match_id: The ID of the match to fetch stats for.
+    """
     if not match_id:
         return
     
@@ -170,6 +182,11 @@ def find_matchstats(match_id):
     end = time.time()
 
 def select_player():
+    """
+    Controller to select a player from a team.
+    First asks to select a team, then lists players for selection.
+    Returns the selected player's ID.
+    """
     team_id = select_team_for_action()
     if not team_id:
         return None
@@ -178,6 +195,10 @@ def select_player():
     return handle_pagination(lambda page: get_players(team_id, offset=page), display_players_paginated)
 
 def cmd_create_team():
+    """
+    Controller to create a new team.
+    Prompts for team name and handles creation logic.
+    """
     team_name = get_team_name_input()
     if not team_name:
         print_operation_cancelled()
@@ -294,10 +315,18 @@ def cmd_create_player_for_team():
         print_creation_failed("player", f"{player_info['first_name']} {player_info['last_name']}")
 
 def select_stadium():
+    """
+    Controller to select a stadium from the list of all stadiums.
+    Returns the selected stadium's ID.
+    """
     print_select_from_list("stadium")
     return handle_pagination(lambda page: get_stadiums(offset=page), display_stadiums_paginated)
 
 def cmd_create_stadium():
+    """
+    Controller to create a new stadium.
+    Prompts for stadium details (name, location, capacity) and handles creation.
+    """
     info = get_stadium_info_input()
     if not info:
         print_operation_cancelled()
@@ -722,6 +751,12 @@ def cmd_view_team_stadiums():
     handle_pagination_view_only(lambda page: get_team_stadiums(team_id, offset=page), display_team_stadiums)
 
 def find_player_shot_percentage(player_id, shot_type, match_id=None):
+    """
+    Calculates and displays the shot percentage for a player.
+    - player_id: The ID of the player.
+    - shot_type: The type of shot (e.g., 'Free Throw').
+    - match_id: Optional match ID to filter stats by match.
+    """
     stats = get_player_shot_stats(player_id, shot_type, match_id)
     made = stats.get(f'{shot_type} Made', 0)
     missed = stats.get(f'{shot_type} Attempt', 0)
@@ -743,6 +778,10 @@ def find_player_shot_percentage(player_id, shot_type, match_id=None):
     display_shot_analysis(analysis_data)
 
 def obtain_match_scores(match_id):
+    """
+    Retrieves and displays the scores for a specific match.
+    - match_id: The ID of the match.
+    """
     scores = get_scores(match_id)
     if scores:
         display_match_score(match_id, scores)
@@ -750,6 +789,10 @@ def obtain_match_scores(match_id):
         return
 
 def shot_percentage_control():
+    """
+    Controller for the shot percentage analysis feature.
+    Allows selecting a player and a shot type to view analysis.
+    """
     player_id = select_player()
     if not player_id:
         return 
@@ -764,6 +807,11 @@ def shot_percentage_control():
         find_player_shot_percentage(player_id, shot_map[choice])
 
 def calculate_standings(phase_id):
+    """
+    Calculates standings based on the phase type.
+    - phase_id: The ID of the phase (1 for group stage, others for knockout).
+    Returns the calculated standings data.
+    """
     if phase_id == 1: 
         return calculate_group_stage_standings(phase_id)
     else:
@@ -912,6 +960,10 @@ def management_menu():
             cmd_remove_admin_user()
 
 def cmd_add_admin_user():
+    """
+    Controller to add a new admin user.
+    Prompts for username and password.
+    """
     username, password = get_new_admin_credentials()
     if not username or not password:
         print_operation_cancelled()
@@ -923,6 +975,10 @@ def cmd_add_admin_user():
         print_creation_failed("admin user", username)
 
 def cmd_remove_admin_user():
+    """
+    Controller to remove an existing admin user.
+    Requires verification of credentials before removal.
+    """
     username = get_admin_username_input()
     if username == 'q':
         print_operation_cancelled()
@@ -944,6 +1000,10 @@ def cmd_remove_admin_user():
             print_removal_failed("admin user", username)
 
 def get_year():
+    """
+    Controller to select a season year.
+    Returns the selected season year.
+    """
     print_select_from_list("season")
     return handle_pagination(lambda page: get_seasons(offset=page), display_years)
 
@@ -971,6 +1031,9 @@ def view_menu():
             cmd_view_matches_for_referee()
     
 def league_menu():
+    """
+    Handles the sub-menu for viewing league details like standings and rounds.
+    """
     year_id = get_year()
     while True:
         index = get_menu_choice(
@@ -1004,6 +1067,10 @@ def league_menu():
             continue
 
 def stats_menu():
+    """
+    Handles the sub-menu for viewing various statistics.
+    Includes player stats, match stats, shot analysis, and season MVP.
+    """
     while True:
         choice = get_menu_choice(
             "What stats would you like to view?",

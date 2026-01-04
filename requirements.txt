@@ -6,3 +6,5 @@ flask_login
 flask_bcrypt
 pymysql
 certifi
+cryptography
+Faker

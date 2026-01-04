@@ -1,4 +1,4 @@
 from app import create_app
-from config import DevelopmentConfig # Or ProductionConfig if you have it
+from config import ProductionConfig # Or DevelopmentConfig for local development
 
-app = create_app(DevelopmentConfig)
+app = create_app(ProductionConfig)

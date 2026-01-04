@@ -17,9 +17,11 @@ def get_menu_choice(title, options, quit_text="Go Back"):
         print(prompt)
 
 def display_shot_percentage_menu():
+    """Displays the menu for selecting shot types for analysis."""
     return get_menu_choice("Select Shot Type", {"1": "Free Throws", "2": "2 Point Shoots", "3": "3 Point Shoots"})
 
 def display_years(seasons):
+    """Displays a list of available seasons (years)."""
     if not seasons:
         print("No more seasons found.")
         return
@@ -29,6 +31,11 @@ def display_years(seasons):
 
 
 def display_standings(standings_list, is_group_stage=False):
+    """
+    Displays the standings table.
+    - standings_list: List of team stats.
+    - is_group_stage: Boolean indicating if it's group stage (affects formatting).
+    """
     if not is_group_stage or not standings_list or 'group_rank' not in standings_list[0]:
         
         header = f"\n{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}"
@@ -300,9 +307,18 @@ def get_game_time_input():
         except ValueError:
             print("Invalid time format. Please use MM:SS.")
 
-def get_team_name_input(): return input("Enter the new team's name (or leave blank to cancel): ").strip()
-def id_selection_input(): return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
-def get_new_team_name_input(): return input("Enter the new team name (or q to go back): ").strip()
+def get_team_name_input(): 
+    """Prompts the user for a team name."""
+    return input("Enter the new team's name (or leave blank to cancel): ").strip()
+
+def id_selection_input(): 
+    """Prompts the user to select an ID from a list."""
+    return input("\nEnter the ID you want to select, press [Enter] for next page, or 'q' to quit: ").strip()
+
+def get_new_team_name_input(): 
+    """Prompts the user for a new name for an existing team."""
+    return input("Enter the new team name (or q to go back): ").strip()
+
 def get_updated_player_info_input(current_details):
     """
     Prompts user for updated player details, showing current values.
@@ -357,44 +373,147 @@ def get_delete_confirmation_input(item_type, item_id):
     return confirmation_id
 
         
-def print_player_list_header(team_id): print(f"\n--- Players for Team ID: {team_id} ---")
-def print_select_team_for_player(): print("First, select the team for the new player.")
-def print_select_from_list(example):print(f"\nPlease select a {example} from the list below.")
-def print_no_more_found(example):print(f"No more {example} found.")
-def print_no_group_phase_found():print("No group phase found for the selected season.")
-def print_no_knockout_rounds_found():print("No rounds found for the knock out phase.")
-def print_season_creation_failed(year): print(f"Failed to create season '{year}'. It may already exist.")
-def print_creation_failed(item_type, name): print(f"Failed to create {item_type} '{name}'. It may already exist or there was a database error.")
-def print_removal_failed(item_type, name): print(f"Failed to remove {item_type} '{name}'.")
-def print_season_creation_success(year): print(f"Season '{year}' created successfully.")
-def print_phases_creation_success(): print("Group Stage and Knockout phases created.")
-def print_rounds_creation_success(): print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
-def print_team_creation_success(team_name): print(f"Team '{team_name}' created successfully.")
-def print_referee_creation_success(first_name, last_name): print(f"Referee '{first_name} {last_name}' created successfully.")
-def print_match_creation_success(match_id): print(f"Match created successfully with ID: {match_id}")
-def print_player_creation_success(first_name, last_name): print(f"Player '{first_name} {last_name}' created successfully.")
-def print_update_success(item): print(f"Successfully updated {item}.")
-def print_update_failed(item): print(f"Failed to update {item}. The value may be a duplicate or a database error occurred.")
-def print_delete_success(item_type, item_id): print(f"Successfully deleted {item_type} with ID {item_id}.")
+def print_player_list_header(team_id): 
+    """Prints the header for the player list of a specific team."""
+    print(f"\n--- Players for Team ID: {team_id} ---")
+
+def print_select_team_for_player(): 
+    """Prints instruction to select a team before creating a player."""
+    print("First, select the team for the new player.")
+
+def print_select_from_list(example):
+    """Prints instruction to select an item from a list."""
+    print(f"\nPlease select a {example} from the list below.")
+
+def print_no_more_found(example):
+    """Prints message when no more items are found in pagination."""
+    print(f"No more {example} found.")
+
+def print_no_group_phase_found():
+    """Prints error when group phase is missing."""
+    print("No group phase found for the selected season.")
+
+def print_no_knockout_rounds_found():
+    """Prints error when knockout rounds are missing."""
+    print("No rounds found for the knock out phase.")
+
+def print_season_creation_failed(year): 
+    """Prints error when season creation fails."""
+    print(f"Failed to create season '{year}'. It may already exist.")
+
+def print_creation_failed(item_type, name): 
+    """Prints generic creation failure message."""
+    print(f"Failed to create {item_type} '{name}'. It may already exist or there was a database error.")
+
+def print_removal_failed(item_type, name): 
+    """Prints generic removal failure message."""
+    print(f"Failed to remove {item_type} '{name}'.")
+
+def print_season_creation_success(year): 
+    """Prints success message for season creation."""
+    print(f"Season '{year}' created successfully.")
+
+def print_phases_creation_success(): 
+    """Prints success message for phase creation."""
+    print("Group Stage and Knockout phases created.")
+
+def print_rounds_creation_success(): 
+    """Prints success message for round creation."""
+    print("Knockout rounds (Quarter-Finals, Semi-Finals, etc.) created.")
+
+def print_team_creation_success(team_name): 
+    """Prints success message for team creation."""
+    print(f"Team '{team_name}' created successfully.")
+
+def print_referee_creation_success(first_name, last_name): 
+    """Prints success message for referee creation."""
+    print(f"Referee '{first_name} {last_name}' created successfully.")
+
+def print_match_creation_success(match_id): 
+    """Prints success message for match creation."""
+    print(f"Match created successfully with ID: {match_id}")
+
+def print_player_creation_success(first_name, last_name): 
+    """Prints success message for player creation."""
+    print(f"Player '{first_name} {last_name}' created successfully.")
+
+def print_update_success(item): 
+    """Prints generic update success message."""
+    print(f"Successfully updated {item}.")
+
+def print_update_failed(item): 
+    """Prints generic update failure message."""
+    print(f"Failed to update {item}. The value may be a duplicate or a database error occurred.")
+
+def print_delete_success(item_type, item_id): 
+    """Prints generic delete success message."""
+    print(f"Successfully deleted {item_type} with ID {item_id}.")
+
 def print_delete_failed(item_type, item_id, note=None):
+    """Prints generic delete failure message."""
     message = f"Failed to delete {item_type} with ID {item_id}."
     if note: message += f" {note}"
     print(message)
-def print_confirmation_failed(): print("Confirmation failed. The entered ID did not match. Deletion cancelled.")
-def print_operation_cancelled(): print("Operation cancelled.")
-def print_create_match_header(): print("\n--- Create a New Match ---")
-def print_select_home_team(): print("\nFirst, select the HOME team.")
-def print_select_away_team(): print("\nNext, select the AWAY team.")
-def print_status_set_to(status): print(f"Match status will be set to: {status}")
-def print_invalid_team_selection(): print("The away team cannot be the same as the home team. Please select a different team.")
-def print_no_phases_found(): print("No phases found for this season. Please create them first.")
-def print_link_success(item1, id1, item2, id2): print(f"Successfully linked {item1} {id1} to {item2} {id2}.")
-def print_unlink_success(item1, id1, item2, id2): print(f"Successfully unlinked {item1} {id1} from {item2} {id2}.")
-def print_event_creation_success(event_name, player_id, match_id): print(f"Successfully created event '{event_name}' for player {player_id} in match {match_id}.")
-def invalid_input():print("Invalid input. Please try again.")
-def print_welcome(): print("\n--->>Welcome to the BasketBall League<<---")
-def print_stadium_creation_success(name): print(f"Stadium '{name}' created successfully.")
-def print_stadium_deletion_success(stadium_id): print(f"Stadium with ID {stadium_id} deleted successfully.")
+
+def print_confirmation_failed(): 
+    """Prints message when deletion confirmation fails."""
+    print("Confirmation failed. The entered ID did not match. Deletion cancelled.")
+
+def print_operation_cancelled(): 
+    """Prints message when an operation is cancelled."""
+    print("Operation cancelled.")
+
+def print_create_match_header(): 
+    """Prints header for match creation process."""
+    print("\n--- Create a New Match ---")
+
+def print_select_home_team(): 
+    """Prints instruction to select home team."""
+    print("\nFirst, select the HOME team.")
+
+def print_select_away_team(): 
+    """Prints instruction to select away team."""
+    print("\nNext, select the AWAY team.")
+
+def print_status_set_to(status): 
+    """Prints the status assigned to a match."""
+    print(f"Match status will be set to: {status}")
+
+def print_invalid_team_selection(): 
+    """Prints error for invalid team selection (e.g. same team twice)."""
+    print("The away team cannot be the same as the home team. Please select a different team.")
+
+def print_no_phases_found(): 
+    """Prints error when no phases are found."""
+    print("No phases found for this season. Please create them first.")
+
+def print_link_success(item1, id1, item2, id2): 
+    """Prints success message for linking two items."""
+    print(f"Successfully linked {item1} {id1} to {item2} {id2}.")
+
+def print_unlink_success(item1, id1, item2, id2): 
+    """Prints success message for unlinking two items."""
+    print(f"Successfully unlinked {item1} {id1} from {item2} {id2}.")
+
+def print_event_creation_success(event_name, player_id, match_id): 
+    """Prints success message for event creation."""
+    print(f"Successfully created event '{event_name}' for player {player_id} in match {match_id}.")
+
+def invalid_input():
+    """Prints generic invalid input message."""
+    print("Invalid input. Please try again.")
+
+def print_welcome(): 
+    """Prints the application welcome message."""
+    print("\n--->>Welcome to the BasketBall League<<---")
+
+def print_stadium_creation_success(name): 
+    """Prints success message for stadium creation."""
+    print(f"Stadium '{name}' created successfully.")
+
+def print_stadium_deletion_success(stadium_id): 
+    """Prints success message for stadium deletion."""
+    print(f"Stadium with ID {stadium_id} deleted successfully.")
 
 
 def get_admin_username_input():
@@ -405,10 +524,18 @@ def get_admin_password_input():
     """Prompts user for admin password or q to cancel."""
     return input("Enter admin password (or press q to go back): ").strip()
 
-def print_login_success(username): print(f"\nLogin successful! Welcome, {username}.")
+def print_login_success(username): 
+    """Prints success message for admin login."""
+    print(f"\nLogin successful! Welcome, {username}.")
 
-def print_login_failed(): print("\nLogin failed! Invalid username or password. Please try again.")
-def display_season_mvp(year,player): print(f"\nThe {year} MVP is:", f"{player['first_name']} {player['last_name']} with a total of {player['total_points']} points.") 
+def print_login_failed(): 
+    """Prints failure message for admin login."""
+    print("\nLogin failed! Invalid username or password. Please try again.")
+
+def display_season_mvp(year,player): 
+    """Displays the MVP for a specific season."""
+    print(f"\nThe {year} MVP is:", f"{player['first_name']} {player['last_name']} with a total of {player['total_points']} points.") 
+
 def get_new_admin_credentials():
     """Prompts user for new admin username and password."""
     print("\nEnter new admin user details (leave username blank to cancel):")
@@ -430,8 +557,13 @@ def get_new_admin_credentials():
 
     return username,password
 
-def print_admin_creation_success(username): print(f"Admin user '{username}' added successfully.")
-def print_admin_removal_success(username): print(f"Admin user '{username}' removed successfully.")
+def print_admin_creation_success(username): 
+    """Prints success message for admin user creation."""
+    print(f"Admin user '{username}' added successfully.")
+
+def print_admin_removal_success(username): 
+    """Prints success message for admin user removal."""
+    print(f"Admin user '{username}' removed successfully.")
 
 def get_stadium_info_input():
     """Prompts user for new stadium details."""

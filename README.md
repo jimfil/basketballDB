@@ -53,6 +53,7 @@ FLASK_APP=run
 FLASK_DEBUG=1
 SECRET_KEY= {your secret key}
 
+(Skip 4 and 5 if the database has Entries)
 4. Initialize the database:
 
 python init_db.py

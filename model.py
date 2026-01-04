@@ -12,6 +12,7 @@ DB_PASS = os.getenv('DB_PASS')
 DB_NAME   = os.getenv('DB_NAME')
 
 def get_connection():
+    """Establishes and returns a connection to the database."""
     con = pymysql.connect(
         host=DB_HOST, 
         user=DB_USER, 
@@ -23,6 +24,7 @@ def get_connection():
     return con
 
 def query(sql, params=()):
+    """Executes a SQL query and returns the results as a list of dictionaries."""
     returnable = []
     with get_connection() as con:
         with con.cursor() as cur:
@@ -34,6 +36,7 @@ def query(sql, params=()):
     
 
 def get_persons(limit=0):
+    """Fetches a list of persons, optionally limited by count."""
     sql = "SELECT id, first_name, last_name FROM person"
     params = []
     if limit != 0:
@@ -56,6 +59,7 @@ def get_players(team_id, offset=0, limit=10):
             
 
 def get_teams(offset=0, limit=10):
+    """Fetches a paginated list of teams."""
     sql = "SELECT id, name FROM team"
     params = []
     if limit != 0:
@@ -65,9 +69,11 @@ def get_teams(offset=0, limit=10):
     return query(sql, params)
             
 def get_matches():
+    """Fetches all matches from the database."""
     return query("SELECT * FROM `match`;")
 
 def get_seasons(offset=0, limit=10):
+    """Fetches a paginated list of seasons (years)."""
     sql = "SELECT year as id, year FROM season ORDER BY year DESC"
     params = []
     if limit != 0:
@@ -77,12 +83,15 @@ def get_seasons(offset=0, limit=10):
     return query(sql, params)
 
 def get_matches_by_round(round_id):
+    """Fetches matches for a specific round."""
     return query("SELECT id as match_id, home_team_id, away_team_id, match_date, status FROM `Match` WHERE round_id = %s;", (round_id,))
 
 def get_match(match_id):
+    """Fetches details for a specific match."""
     return query("SELECT * FROM `Match` WHERE id = %s;", (match_id,))
 
 def get_matches_by_team(team_id ,offset):
+        """Fetches paginated matches for a specific team, including team names."""
         return (query("SELECT name FROM Team WHERE id = %s;", (team_id,)),
             query("""
                 SELECT
@@ -98,6 +107,7 @@ def get_matches_by_team(team_id ,offset):
             """, (team_id, team_id, offset*10)))
 
 def get_referees_in_match(match_id):
+    """Fetches referees assigned to a specific match."""
     return query("SELECT r.* FROM match_referee JOIN referee r ON match_referee.referee_id = r.id WHERE match_id = %s;", (match_id,))
 
 def get_referees(offset=0, limit=10):
@@ -186,9 +196,11 @@ def execute_insert_and_get_id(sql, params=()):
         return None
 
 def create_season(year):
+    """Creates a new season entry."""
     return execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
 
 def create_stadium(name, location, capacity):
+    """Creates a new stadium entry."""
     return execute_cud("INSERT INTO Stadium (name, location, capacity) VALUES (%s, %s, %s);", (name, location, capacity))
 
 def unlink_team_home_stadium(team_id, round_id):
@@ -227,24 +239,31 @@ def get_team_stadiums(team_id, offset=0, limit=10):
     return query(sql, (team_id, limit, offset * limit))
 
 def create_person(first_name, last_name, speciality):
+    """Creates a new person entry."""
     return execute_cud("INSERT INTO Person (first_name, last_name, speciality) VALUES (%s, %s, %s);", (first_name, last_name, speciality))
 
 def create_referee(first_name, last_name):
+    """Creates a new referee entry."""
     return execute_cud("INSERT INTO referee (first_name, last_name) VALUES (%s, %s);", (first_name, last_name))
 
 def create_event(name, type, subtype):
+    """Creates a new event type."""
     return execute_cud("INSERT INTO event (name, type, subtype) VALUES (%s, %s, %s);", (name, type, subtype))
 
 def create_round(round_id, phase_id):
+    """Creates a new round entry."""
     return execute_cud("INSERT INTO Round (round_id, phase_id) VALUES (%s, %s);", (round_id, phase_id))
 
 def create_phase(year, phase_id):
+    """Creates a new phase entry and returns its ID."""
     return execute_insert_and_get_id("INSERT INTO phase (year, phase_id) VALUES (%s, %s);", (year, phase_id))
 
 def create_team(name):
+    """Creates a new team entry."""
     return execute_cud("INSERT INTO Team (NAME) VALUES (%s);", (name,))
 
 def return_cud_tables(): 
+    """Returns a list of all tables in the database."""
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute("SHOW TABLES;")
@@ -252,6 +271,7 @@ def return_cud_tables():
             return [tables[0] for tables in tables]
         
 def return_attributes(table_name): 
+    """Returns a list of column names for a specific table."""
     with get_connection() as con:
         with con.cursor() as cur:
             cur.execute(f"SHOW COLUMNS FROM {table_name};")
@@ -259,6 +279,7 @@ def return_attributes(table_name):
             return [col[0] for col in columns]
         
 def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):  
+    """Reads specific attributes from a table."""
     with get_connection() as con:
         with con.cursor() as cur:
             lista =[]
@@ -269,6 +290,7 @@ def read_table_entries_for_attribute(table_name,list_table_attribute = "*"):
             
 
 def create_entry(table_name,list_user_input):
+    """Generic function to insert a new entry into a table."""
     col_names = return_attributes(table_name)
     columns_str = ", ".join(col_names) 
     placeholders = ", ".join(["%s"] * len(list_user_input))
@@ -276,6 +298,7 @@ def create_entry(table_name,list_user_input):
     return execute_cud(sql, list_user_input)
 
 def delete_from_table(table_name,id):
+    """Generic function to delete an entry from a table by ID."""
     sql = f"DELETE FROM {table_name} WHERE id = %s;"
     return execute_cud(sql, (id,))
         
@@ -332,6 +355,12 @@ def get_match_stats(match_id, offset=0, limit=10):
 
 
 def get_player_shot_stats(player_id, shot_type, match_id=None):
+    """
+    Fetches shot statistics for a player.
+    - player_id: The ID of the player.
+    - shot_type: The type of shot (e.g., 'Free Throw').
+    - match_id: Optional match ID to filter by match.
+    """
     with get_connection() as con:
         with con.cursor() as cur:
             sql = """
@@ -542,9 +571,11 @@ def get_scores(match_id):
     }
 
 def get_phases_by_season(year):
+    """Fetches all phases for a specific season."""
     return query("SELECT * FROM Phase WHERE year = %s ORDER BY id", (year,))
 
 def get_phases(limit=0):
+    """Fetches a list of phases, optionally limited."""
     sql = "SELECT id, name FROM phase"
     params = []
     if limit != 0:
@@ -554,6 +585,7 @@ def get_phases(limit=0):
     return query(sql, params)
 
 def get_matches_by_phase(phase_id):
+    """Fetches completed matches for a specific phase."""
     matches_sql = """
         SELECT m.id as match_id, m.home_team_id, m.away_team_id, m.match_date, m.status 
         FROM `Match` m
@@ -564,6 +596,7 @@ def get_matches_by_phase(phase_id):
     return matches
 
 def get_rounds(limit=0):
+    """Fetches a list of rounds, optionally limited."""
     sql = "SELECT id, name FROM round"
     params = []
     if limit != 0:
@@ -573,25 +606,29 @@ def get_rounds(limit=0):
     return query(sql, params)
 
 def get_stadiums(offset=0, limit=10):
+    """Fetches a paginated list of stadiums."""
     sql = "SELECT id, name, location, capacity FROM stadium LIMIT %s OFFSET %s"
     return query(sql, (limit, offset * limit))
 
 def get_rounds_by_phase(phase_id):
+    """Fetches all rounds for a specific phase."""
     return query("SELECT * FROM Round WHERE phase_id = %s ORDER BY id", (phase_id,))
 
 def get_team_name(team_id):
+    """Fetches the name of a team by its ID."""
     return query("SELECT name FROM Team WHERE id = %s", (team_id,))
 
 
-def create_season(year):
-    return execute_cud("INSERT INTO Season (year) VALUES (%s);", (year,))
-
-
 def get_person_attributes():
+    """Returns the attributes (columns) of the Person table."""
     return return_attributes('Person')
 
 
 def create_player(player_data):
+    """
+    Creates a new player and assigns them to a team.
+    - player_data: Dictionary containing player details.
+    """
     try:
         with get_connection() as con:
             con.begin()
@@ -777,6 +814,7 @@ def drop_all_defined_indexes():
 
 
 def apply_indexes():
+    """Creates indexes on Event_Creation and Match tables to improve performance."""
     with get_connection() as con:
         sql = [
         "CREATE INDEX idx_event_match_time ON Event_Creation (match_id, game_time)",

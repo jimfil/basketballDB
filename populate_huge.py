@@ -430,11 +430,29 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
     
     conn.commit()
     res_p1 = simulate_match_batch(cursor, p1_matches, rosters, e_map)
-    for res in res_p1.values(): group_standings[res['winner']] += 1
+    
+    # Initialize points tracker
+    team_points = {t: 0 for t in teams}
+
+    # Process results to update Standings (Wins) and Points
+    for mid, h, a, _ in p1_matches:
+        if mid in res_p1:
+            res = res_p1[mid]
+            
+            # Update Wins
+            group_standings[res['winner']] += 1
+            
+            # Update Points (Secondary Sort Criteria)
+            team_points[h] += res['score']['home']
+            team_points[a] += res['score']['away']
     
     qualifiers = []
     for g in groups:
-        qualifiers.extend(sorted(g, key=lambda t: group_standings[t], reverse=True)[:4])
+        # Sort by:
+        # 1. Wins (group_standings[t])
+        # 2. Total Points (team_points[t])
+        # Both in descending order (reverse=True)
+        qualifiers.extend(sorted(g, key=lambda t: (group_standings[t], team_points[t]), reverse=True)[:4])
         
     print(f"   -> Group Stage Complete. {len(qualifiers)} teams qualified.")
     

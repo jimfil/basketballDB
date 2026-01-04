@@ -435,19 +435,30 @@ def calculate_group_stage_standings(phase_id):
         FROM MatchScores
         GROUP BY team_id
     ),
+    TotalPoints AS (
+        -- 6. Calculate total points for each team
+        SELECT team_id, SUM(points) as total_points
+        FROM (
+            SELECT home_team_id as team_id, home_score as points FROM MatchScores
+            UNION ALL
+            SELECT away_team_id as team_id, away_score as points FROM MatchScores
+        ) sub
+        GROUP BY team_id
+    ),
     RankedTeams AS (
-        -- 6. Join all data and rank teams within their group
+        -- 7. Join all data and rank teams within their group
         SELECT
             t.name,
             tg.group_identifier,
             COALESCE(w.wins, 0) AS wins,
             (SELECT COUNT(*) FROM PhaseMatches pm WHERE pm.home_team_id = t.id OR pm.away_team_id = t.id) - COALESCE(w.wins, 0) AS losses,
-            RANK() OVER (PARTITION BY tg.group_identifier ORDER BY COALESCE(w.wins, 0) DESC, t.id) as group_rank
+            RANK() OVER (PARTITION BY tg.group_identifier ORDER BY COALESCE(w.wins, 0) DESC, COALESCE(tp.total_points, 0) DESC) as group_rank
         FROM Team t
         JOIN TeamGroups tg ON t.id = tg.team_id
         LEFT JOIN Wins w ON t.id = w.team_id
+        LEFT JOIN TotalPoints tp ON t.id = tp.team_id
     )
-    -- 7. Final selection and ordering
+    -- 8. Final selection and ordering
     SELECT name, wins, losses, group_identifier, group_rank
     FROM RankedTeams
     ORDER BY group_identifier, group_rank;

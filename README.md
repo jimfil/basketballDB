@@ -4,9 +4,9 @@ A Python-based database system and utilities for storing, querying, and analyzin
 
 This repository contains tools to initialize, populate, and interact with a basketball match database. It includes a CLI and a web interface for browsing records, Python modules for data access, and scripts for initialzing and populating the database.
 
-# For the correct application go to "Progress" Branch
+For the correct application go to "Progress" Branch
 
-Repository Structure
+# Repository Structure
 
 basketballDB/
 ├── basketball_league_web/ # Web UI for browsing league data

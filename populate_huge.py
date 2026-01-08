@@ -17,6 +17,7 @@ NUM_STADIUMS = 24
 NUM_REFEREES = 40
 PLAYERS_PER_TEAM = 12 
 YEARS_TO_SIMULATE = list(range(2004, 2026))  
+BATCH_SIZE = 10000  # Size for event chunks
 
 # Connect to Database
 def get_connection():
@@ -27,7 +28,7 @@ def get_connection():
         database=os.getenv('DB_NAME'),
         port=4000,
         ssl={'ca': certifi.where()},
-        autocommit=False 
+        autocommit=False
     )
 
 def simulate_2026_partial(conn, cursor, match_id_start, teams, rosters, e_map, home_stadiums, referees):
@@ -40,72 +41,73 @@ def simulate_2026_partial(conn, cursor, match_id_start, teams, rosters, e_map, h
     phase_1_pk = cursor.lastrowid
     
     # Create Rounds for Phase 1
+    num_rounds_p1 = len(teams) - 1
     phase_rounds = []
-    for r_num in range(1, 6):
+    round_inserts = []
+    for r_num in range(1, num_rounds_p1 + 1):
+        # We need the ID back, so we must insert one by one or use a different strategy.
+        # Since rounds are few (23), one-by-one is fine.
         cursor.execute("INSERT INTO `Round` (round_id, phase_id) VALUES (%s, %s)", (r_num, phase_1_pk))
         phase_rounds.append(cursor.lastrowid)
         
     match_id_counter = match_id_start
     random.shuffle(teams)
-    groups = [teams[i:i+6] for i in range(0, 24, 6)]
     
     all_p1_matches = []
+    match_insert_buffer = [] # OPTIMIZATION: Buffer for bulk insert
     start_date = date(2026, 8, 1)
 
-    # 2. Generate all Phase 1 Matches
-    for group in groups:
-        schedule = generate_single_rr(group)
-        for r_idx, round_matches in enumerate(schedule):
-            curr_round_pk = phase_rounds[r_idx]
-            # Space matches out: Round 1 starts Aug 1, subsequent rounds weekly
-            mdate = start_date + timedelta(weeks=r_idx)
-            
-            for h, a in round_matches:
-                all_p1_matches.append({
-                    'id': match_id_counter,
-                    'h': h, 'a': a, 
-                    'date': mdate, 
-                    'round': curr_round_pk, 
-                    'stadium': home_stadiums[h]
-                })
-                match_id_counter += 1
+    schedule = generate_single_rr(teams)
+    
+    # 2. Generate Schedule
+    for r_idx, round_matches in enumerate(schedule):
+        curr_round_pk = phase_rounds[r_idx]
+        mdate = start_date + timedelta(weeks=r_idx)
+        
+        for h, a in round_matches:
+            match_data = {
+                'id': match_id_counter,
+                'h': h, 'a': a, 
+                'date': mdate, 
+                'round': curr_round_pk, 
+                'stadium': home_stadiums[h]
+            }
+            all_p1_matches.append(match_data)
+            match_id_counter += 1
 
-    # 3. Assign Statuses
+    # 3. Assign Statuses & Prepare Inserts
     # Game 1: Completed
     m1 = all_p1_matches[0]
-    cursor.execute(
-        "INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) "
-        "VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", 
-        (m1['id'], m1['date'], m1['round'], m1['stadium'], m1['h'], m1['a'])
+    match_insert_buffer.append(
+        (m1['id'], m1['date'], 'Completed', m1['round'], m1['stadium'], m1['h'], m1['a'])
     )
-    # Run full simulation for the completed game
-    simulate_match_batch(cursor, [(m1['id'], m1['h'], m1['a'], m1['date'])], rosters, e_map)
 
-    # Game 2: Ongoing (August 1, 2026 at 9:00 AM)
+    # Game 2: Ongoing
     m2 = all_p1_matches[1]
     ongoing_datetime = datetime.combine(date(2026, 8, 1), time(9, 0))
-    cursor.execute(
-        "INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) "
-        "VALUES (%s, %s, 'Ongoing', %s, %s, %s, %s)", 
-        (m2['id'], ongoing_datetime, m2['round'], m2['stadium'], m2['h'], m2['a'])
+    match_insert_buffer.append(
+        (m2['id'], ongoing_datetime, 'Ongoing', m2['round'], m2['stadium'], m2['h'], m2['a'])
     )
-    # We can simulate partial events if needed, or leave it with just a few initial events
-    # For "Ongoing", we'll simulate just the first 2 quarters to show progress
-    # (Note: Requires a slight tweak to simulate_match_batch if you want partial quarters)
 
     # Remaining Games: Scheduled
-    scheduled_matches = []
     for m in all_p1_matches[2:]:
-        scheduled_matches.append((m['id'], m['date'], 'Scheduled', m['round'], m['stadium'], m['h'], m['a']))
+        match_insert_buffer.append(
+            (m['id'], m['date'], 'Scheduled', m['round'], m['stadium'], m['h'], m['a'])
+        )
     
+    # OPTIMIZATION: Execute all match inserts at once
     cursor.executemany(
         "INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
-        scheduled_matches
+        match_insert_buffer
     )
 
+    # Run full simulation only for the completed game
+    # (Matches must exist in DB before Events if FKs exist)
+    simulate_match_batch(cursor, [(m1['id'], m1['h'], m1['a'], m1['date'])], rosters, e_map)
+
     conn.commit()
-    print(f"*** 2026 Season Initialized: 1 Completed, 1 Ongoing, {len(scheduled_matches)} Scheduled ***")
+    print(f"*** 2026 Season Initialized: 1 Completed, 1 Ongoing, {len(match_insert_buffer)-2} Scheduled ***")
     return match_id_counter
 
 
@@ -117,18 +119,14 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
     for match_info in matches_data:
         m_id, home_id, away_id, m_date = match_info
         
-        # Determine Game Start Time
         if isinstance(m_date, str):
             base_date = datetime.strptime(m_date, '%Y-%m-%d')
         else:
             base_date = datetime.combine(m_date, datetime.min.time())
             
-        # Rosters Check
         if home_id not in team_rosters or away_id not in team_rosters:
-            print(f"Skipping match {m_id} due to missing roster.")
             continue
         
-        # UNPACK ROSTERS
         home_data = team_rosters[home_id]
         away_data = team_rosters[away_id]
         
@@ -137,15 +135,14 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
         home_coaches = home_data['coaches'][:] 
         away_coaches = away_data['coaches'][:]
         
-        # On Court / Bench
         on_court = { 'home': set(home_players[:5]), 'away': set(away_players[:5]) }
         bench = { 'home': list(home_players[5:]), 'away': list(away_players[5:]) }
         
-        # Stats
         scores = {'home': 0, 'away': 0}
         player_fouls = {pid: 0 for pid in home_players + away_players}
         team_fouls = {'home': 0, 'away': 0}
         
+        # Internal log function
         def log(pid, evt, time):
             event_buffer.append((m_id, pid, event_map[evt], time))
 
@@ -171,7 +168,7 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                 
                 outcome = random.random()
                 
-                # 1. Turnover
+                # Game Logic (Turnovers, Fouls, Shots...)
                 if outcome < 0.15:
                     etype = random.choice(['Turnover', 'Steal', 'Time running out'])
                     if etype == 'Steal':
@@ -181,10 +178,8 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                         log(attacker, etype, current_time)
                     possession = dfn 
                 
-                # 2. Foul
                 elif outcome < 0.30:
                     ftype = random.choices(['Personal Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul'], weights=[70,15,10,5])[0]
-                    
                     if ftype == 'Offensive Foul':
                         log(attacker, ftype, current_time)
                         player_fouls[attacker] += 1
@@ -196,36 +191,28 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                             on_court[atk].add(sub)
                             log(attacker, 'Substitution', current_time)
                             log(sub, 'Substitution', current_time)
-                            
                     elif ftype == 'Technical Foul':
                         is_coach_tech = random.random() < 0.30
                         target_side = random.choice([atk, dfn])
-                        
-                        if is_coach_tech:
-                            coaches_list = home_coaches if target_side == 'home' else away_coaches
-                            if coaches_list:
-                                coach_id = random.choice(coaches_list)
-                                log(coach_id, 'Technical Foul', current_time)
+                        if is_coach_tech and (home_coaches if target_side == 'home' else away_coaches):
+                            coach_id = random.choice(home_coaches if target_side == 'home' else away_coaches)
+                            log(coach_id, 'Technical Foul', current_time)
                         else:
                             p_target = random.choice(list(on_court[target_side]))
                             log(p_target, 'Technical Foul', current_time)
                             player_fouls[p_target] += 1
-                        
                         shooter_side = 'away' if target_side == 'home' else 'home'
                         shooter = random.choice(list(on_court[shooter_side]))
                         res = random.choice(['Made', 'Attempt'])
                         log(shooter, f"Free Throw {res}", current_time)
                         if res == 'Made': scores[shooter_side] += 1
-
-                    else: # Personal or Flagrant
+                    else:
                         log(defender, ftype, current_time)
                         player_fouls[defender] += 1
                         team_fouls[dfn] += 1
-                        
                         shots = 0
                         if ftype == 'Flagrant Foul': shots = 2
                         elif team_fouls[dfn] > 4: shots = 2
-                        
                         if shots > 0:
                             last_made = False
                             for s in range(shots):
@@ -234,7 +221,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                                 if res == 'Made': 
                                     scores[atk] += 1
                                     last_made = True
-                            
                             if last_made: possession = dfn
                             else:
                                 if random.random() < 0.75:
@@ -245,33 +231,26 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                                     possession = atk
                         else:
                             possession = atk 
-                            
                         if player_fouls[defender] >= 5 and bench[dfn]:
                             sub = bench[dfn].pop(0)
                             on_court[dfn].remove(defender)
                             on_court[dfn].add(sub)
                             log(defender, 'Substitution', current_time)
                             log(sub, 'Substitution', current_time)
-
-                # 3. Shot
                 else:
                     is_3pt = random.random() < 0.35
                     s_type = '3-Point Field Goal' if is_3pt else '2-Point Field Goal'
                     pts = 3 if is_3pt else 2
                     is_made = random.choice([True, False])
-                    
                     if is_made:
                         teammate = random.choice(list(on_court[atk] - {attacker}))
                         log(teammate, 'Assist', current_time)
-                        
                         log(attacker, f"{s_type} Made", current_time)
                         scores[atk] += pts
-                        
                         if random.random() < 0.05:
                             log(defender, 'Personal Foul', current_time)
                             log(attacker, 'Free Throw Made', current_time)
                             scores[atk] += 1
-                        
                         possession = dfn
                     else:
                         log(attacker, f"{s_type} Attempt", current_time)
@@ -286,7 +265,6 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
                             log(random.choice(list(on_court[atk])), 'Offensive Rebound', current_time)
                             possession = atk 
 
-                # Substitutions
                 if random.random() < 0.04:
                     side = random.choice(['home', 'away'])
                     if bench[side]:
@@ -301,14 +279,19 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
         while scores['home'] == scores['away']:
             winning_side = random.choice(['home', 'away'])
             scores[winning_side] += 2
-            
             scorer = random.choice(list(on_court[winning_side]))
             log(scorer, '2-Point Field Goal Made', end_time)
+        
         winner = home_id if scores['home'] > scores['away'] else away_id
         loser = away_id if winner == home_id else home_id
-        
         results[m_id] = {'winner': winner, 'loser': loser, 'score': scores}
-    
+        
+        # OPTIMIZATION: Chunked Insert for Events
+        if len(event_buffer) >= BATCH_SIZE:
+            cursor.executemany("INSERT INTO Event_Creation (match_id, person_id, event_id, game_time) VALUES (%s, %s, %s, %s)", event_buffer)
+            event_buffer = [] # Clear buffer
+
+    # Flush remaining events
     if event_buffer:
         cursor.executemany("INSERT INTO Event_Creation (match_id, person_id, event_id, game_time) VALUES (%s, %s, %s, %s)", event_buffer)
     
@@ -319,13 +302,10 @@ def simulate_match_batch(cursor, matches_data, team_rosters, event_map):
 def run_all_seasons(conn, cursor):
     print("--- STARTING MULTI-YEAR SIMULATION ---")
     
-    # 1. Setup Static Data (Run Once)
     setup_static_data(conn, cursor)
     conn.commit()
     
-    # 2. Prepare Shared Resources
     cursor.execute("SELECT id FROM Team")
-    # Sorting ensures that if we inserted 1..24, we get 1..24 back in order
     all_teams = sorted([r[0] for r in cursor.fetchall()])
     teams_24 = all_teams[:NUM_TEAMS]
     
@@ -350,13 +330,10 @@ def run_all_seasons(conn, cursor):
     for i, tid in enumerate(teams_24):
         team_home_stadiums[tid] = stadiums[i % len(stadiums)]
     
-    # 3. Iterate Years
-    # --- CHANGE: Global Match ID Counter starts at 1 ---
     current_match_id = 1 
     
     for year in YEARS_TO_SIMULATE:
         print(f"\n>>> STARTING SEASON {year} <<<")
-        # We pass the counter and get the updated one back
         current_match_id = simulate_season(conn, cursor, year, current_match_id, teams_24, rosters, e_map, team_home_stadiums, referees)
         conn.commit()
     
@@ -367,18 +344,16 @@ def run_all_seasons(conn, cursor):
     sql = [
         "CREATE INDEX idx_event_match_time ON Event_Creation (match_id, game_time)",
         "CREATE INDEX idx_match_date ON `Match` (match_date)"
-        ]
-    print(f"Creating indexes")
+    ]
+    print(f"Creating indexes...")
     for prompt in sql:
             try:
                 cursor.execute(prompt)
             except pymysql.Error as e:
-                print(f"Error:{e}")
+                print(f"Index creation note: {e}")
     print("Successfully created indexes!")    
 
 def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, home_stadiums, referees):
-    # --- HIERARCHY FOR YEAR ---
-    # Season ID is the Year (e.g. 2021) - This is the exception
     cursor.execute("INSERT IGNORE INTO Season (year) VALUES (%s)", (year,))
     
     phase_db_map = {} 
@@ -387,7 +362,7 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
         phase_db_map[logical_p] = cursor.lastrowid
         
     phase_rounds_map = {} 
-    rounds_config = {1: 5, 2: 4} 
+    rounds_config = {1: len(teams) - 1, 2: 4} 
     
     for log_p, count in rounds_config.items():
         phase_pk = phase_db_map[log_p]
@@ -401,6 +376,7 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
     
     team_stadium_buffer = []
     match_referee_buffer = []
+    match_insert_buffer = [] # OPTIMIZATION: Accumulate matches here
     
     def link_match(mid, hid, aid, sid, rid):
         for ref in random.sample(referees, 3):
@@ -408,59 +384,51 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
         team_stadium_buffer.append((hid, sid, rid))
         team_stadium_buffer.append((aid, sid, rid))
 
-    # --- PHASE 1: GROUPS ---
+    # --- PHASE 1: SINGLE LEAGUE ---
     random.shuffle(teams)
-    groups = [teams[i:i+6] for i in range(0, 24, 6)]
-    group_standings = {t: 0 for t in teams}
     p1_matches = []
+    schedule = generate_single_rr(teams)
     
-    for group in groups:
-        schedule = generate_single_rr(group)
-        for r_idx, round_matches in enumerate(schedule):
-            curr_round_pk = phase_rounds_map[1][r_idx]
-            mdate = start_date + timedelta(weeks=r_idx)
-            
-            for h, a in round_matches:
-                mid = match_id_counter
-                match_id_counter += 1
-                stad = home_stadiums[h]
-                p1_matches.append((mid, h, a, mdate))
-                cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, mdate, curr_round_pk, stad, h, a))
-                link_match(mid, h, a, stad, curr_round_pk)
+    for r_idx, round_matches in enumerate(schedule):
+        curr_round_pk = phase_rounds_map[1][r_idx]
+        mdate = start_date + timedelta(weeks=r_idx)
+        
+        for h, a in round_matches:
+            mid = match_id_counter
+            match_id_counter += 1
+            stad = home_stadiums[h]
+            p1_matches.append((mid, h, a, mdate))
+            # Buffer the match insert
+            match_insert_buffer.append((mid, mdate, 'Completed', curr_round_pk, stad, h, a))
+            link_match(mid, h, a, stad, curr_round_pk)
     
-    conn.commit()
+    # OPTIMIZATION: Insert all P1 matches
+    cursor.executemany("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", match_insert_buffer)
+    match_insert_buffer = [] # Clear for next phase
+
+    # Simulate Gameplay (Inserts events in chunks)
     res_p1 = simulate_match_batch(cursor, p1_matches, rosters, e_map)
     
-    # Initialize points tracker
+    # ... (Standings logic remains same)
+    team_wins = {t: 0 for t in teams}
     team_points = {t: 0 for t in teams}
 
-    # Process results to update Standings (Wins) and Points
     for mid, h, a, _ in p1_matches:
         if mid in res_p1:
             res = res_p1[mid]
-            
-            # Update Wins
-            group_standings[res['winner']] += 1
-            
-            # Update Points (Secondary Sort Criteria)
+            team_wins[res['winner']] += 1
             team_points[h] += res['score']['home']
             team_points[a] += res['score']['away']
     
-    qualifiers = []
-    for g in groups:
-        # Sort by:
-        # 1. Wins (group_standings[t])
-        # 2. Total Points (team_points[t])
-        # Both in descending order (reverse=True)
-        qualifiers.extend(sorted(g, key=lambda t: (group_standings[t], team_points[t]), reverse=True)[:4])
-        
-    print(f"   -> Group Stage Complete. {len(qualifiers)} teams qualified.")
+    ranked_teams = sorted(teams, key=lambda t: (team_wins[t], team_points[t]), reverse=True)
+    qualifiers = ranked_teams[:16]
+    print(f"   -> Regular Season Complete. {len(qualifiers)} teams qualified.")
     
     # --- PHASE 2: FINALS ---
     p2_round_ids = phase_rounds_map[2]
     current_teams = qualifiers
     random.shuffle(current_teams)
-    curr_date = start_date + timedelta(weeks=10)
+    curr_date = start_date + timedelta(weeks=len(schedule) + 1)
     
     # R16
     r16_matches = []
@@ -469,10 +437,12 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
         mid = match_id_counter; match_id_counter += 1
         st = home_stadiums[h]
         r16_matches.append((mid, h, a, curr_date))
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, curr_date, p2_round_ids[0], st, h, a))
+        match_insert_buffer.append((mid, curr_date, 'Completed', p2_round_ids[0], st, h, a))
         link_match(mid, h, a, st, p2_round_ids[0])
-        
-    conn.commit()
+    
+    cursor.executemany("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", match_insert_buffer)
+    match_insert_buffer = []
+    
     r16_res = simulate_match_batch(cursor, r16_matches, rosters, e_map)
     qf_teams = [r16_res[m[0]]['winner'] for m in r16_matches]
     
@@ -484,10 +454,12 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
         mid = match_id_counter; match_id_counter += 1
         st = home_stadiums[h]
         qf_matches.append((mid, h, a, curr_date))
-        cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid, curr_date, p2_round_ids[1], st, h, a))
+        match_insert_buffer.append((mid, curr_date, 'Completed', p2_round_ids[1], st, h, a))
         link_match(mid, h, a, st, p2_round_ids[1])
         
-    conn.commit()
+    cursor.executemany("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", match_insert_buffer)
+    match_insert_buffer = []
+    
     qf_res = simulate_match_batch(cursor, qf_matches, rosters, e_map)
     sf_teams = [qf_res[m[0]]['winner'] for m in qf_matches]
     
@@ -497,45 +469,46 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
     mid1 = match_id_counter; match_id_counter += 1
     st1 = home_stadiums[sf_teams[0]]
     sf_matches.append((mid1, sf_teams[0], sf_teams[1], curr_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid1, curr_date, p2_round_ids[2], st1, sf_teams[0], sf_teams[1]))
+    match_insert_buffer.append((mid1, curr_date, 'Completed', p2_round_ids[2], st1, sf_teams[0], sf_teams[1]))
     link_match(mid1, sf_teams[0], sf_teams[1], st1, p2_round_ids[2])
     
     mid2 = match_id_counter; match_id_counter += 1
     st2 = home_stadiums[sf_teams[2]]
     sf_matches.append((mid2, sf_teams[2], sf_teams[3], curr_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid2, curr_date, p2_round_ids[2], st2, sf_teams[2], sf_teams[3]))
+    match_insert_buffer.append((mid2, curr_date, 'Completed', p2_round_ids[2], st2, sf_teams[2], sf_teams[3]))
     link_match(mid2, sf_teams[2], sf_teams[3], st2, p2_round_ids[2])
     
-    conn.commit()
-    sf_res = simulate_match_batch(cursor, sf_matches, rosters, e_map)
+    cursor.executemany("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", match_insert_buffer)
+    match_insert_buffer = []
     
-    fin_teams = []
-    third_teams = []
-    for m in sf_matches:
-        fin_teams.append(sf_res[m[0]]['winner'])
-        third_teams.append(sf_res[m[0]]['loser'])
+    sf_res = simulate_match_batch(cursor, sf_matches, rosters, e_map)
+    fin_teams = [sf_res[m[0]]['winner'] for m in sf_matches]
+    third_teams = [sf_res[m[0]]['loser'] for m in sf_matches]
         
     # FINALS
     fin_matches = []
     curr_date += timedelta(days=2)
-    # 3rd
+    
+    # 3rd Place
     mid3 = match_id_counter; match_id_counter += 1
     st3 = home_stadiums[third_teams[0]]
     fin_matches.append((mid3, third_teams[0], third_teams[1], curr_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (mid3, curr_date, p2_round_ids[3], st3, third_teams[0], third_teams[1]))
+    match_insert_buffer.append((mid3, curr_date, 'Completed', p2_round_ids[3], st3, third_teams[0], third_teams[1]))
     link_match(mid3, third_teams[0], third_teams[1], st3, p2_round_ids[3])
     
-    # Champ
+    # Championship
     midF = match_id_counter; match_id_counter += 1
     stF = home_stadiums[fin_teams[0]]
     fin_matches.append((midF, fin_teams[0], fin_teams[1], curr_date))
-    cursor.execute("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, 'Completed', %s, %s, %s, %s)", (midF, curr_date, p2_round_ids[3], stF, fin_teams[0], fin_teams[1]))
+    match_insert_buffer.append((midF, curr_date, 'Completed', p2_round_ids[3], stF, fin_teams[0], fin_teams[1]))
     link_match(midF, fin_teams[0], fin_teams[1], stF, p2_round_ids[3])
     
-    conn.commit()
+    cursor.executemany("INSERT INTO `Match` (id, match_date, status, round_id, stadium_id, home_team_id, away_team_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", match_insert_buffer)
+    match_insert_buffer = []
+    
     fin_res = simulate_match_batch(cursor, fin_matches, rosters, e_map)
     
-    # COMMIT LINKS
+    # COMMIT LINKS (Bulk)
     if match_referee_buffer:
         cursor.executemany("INSERT IGNORE INTO Match_Referee (match_id, referee_id) VALUES (%s, %s)", match_referee_buffer)
     if team_stadium_buffer:
@@ -545,10 +518,6 @@ def simulate_season(conn, cursor, year, match_id_start, teams, rosters, e_map, h
     cursor.execute("SELECT name FROM Team WHERE id=%s", (champ_id,))
     print(f"*** {year} CHAMPION: {cursor.fetchone()[0]} ***")
     
-    
-                   
-    
-    # Return the updated match counter so the next year continues where we left off
     return match_id_counter
 
 def generate_single_rr(team_ids):
@@ -569,34 +538,26 @@ def generate_single_rr(team_ids):
 
 def setup_static_data(conn, cursor):
     print("Setting up static data...")
-    # --- CHANGE: TEAMS start at 1 ---
     teams = [(i + 1, f"{fake.city()} BC") for i in range(NUM_TEAMS)]
     cursor.executemany("INSERT IGNORE INTO Team (id, name) VALUES (%s, %s)", teams)
     
-    # --- CHANGE: STADIUMS start at 1 (Explicit ID insert) ---
     stadiums = [(i + 1, fake.city(), f"{fake.company()} Arena", random.randint(10000, 90000)) for i in range(NUM_STADIUMS)]
     cursor.executemany("INSERT IGNORE INTO Stadium (id, location, name, capacity) VALUES (%s, %s, %s, %s)", stadiums)
     
-    # --- CHANGE: REFEREES start at 1 ---
     referees = [(i + 1, fake.first_name(), fake.last_name()) for i in range(NUM_REFEREES)]
     cursor.executemany("INSERT IGNORE INTO Referee (id, first_name, last_name) VALUES (%s, %s, %s)", referees)
     
-    # Events (Keep as 1..N)
     evts = ['Turnover', 'Steal', 'Block', 'Offensive Rebound', 'Defensive Rebound', 'Personal Foul', 'Technical Foul', 'Flagrant Foul', 'Offensive Foul', 'Substitution', 'Free Throw Made', 'Free Throw Attempt', '2-Point Field Goal Made', '2-Point Field Goal Attempt', '3-Point Field Goal Made', '3-Point Field Goal Attempt', 'Assist', 'Time running out']
     cursor.executemany("INSERT IGNORE INTO Event (id, name) VALUES (%s, %s)", [(i+1, n) for i, n in enumerate(evts)])
     
-    # --- CHANGE: PERSONS start at 1 ---
     pt_data = []
     p_data = []
-    pid = 1  # Resetting person ID to 1
+    pid = 1 
     
-    # Note: Using teams logic 1..24
     for tid in range(1, NUM_TEAMS + 1):
-        # Coach
         p_data.append((pid, fake.first_name(), fake.last_name(), 'Coach'))
         pt_data.append((pid, tid, datetime.now(), datetime.now(), 0))
         pid += 1
-        # Players
         for _ in range(PLAYERS_PER_TEAM):
             p_data.append((pid, fake.first_name_male(), fake.last_name(), 'Player'))
             pt_data.append((pid, tid, datetime.now(), datetime.now(), random.randint(0,99)))

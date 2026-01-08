@@ -381,54 +381,42 @@ def get_player_shot_stats(player_id, shot_type, match_id=None):
 
 def calculate_group_stage_standings(phase_id):
     """
-    Calculates group stage standings, correctly ranking teams within their dynamically identified groups.
-    Qualification is based on being in the top 4 of a group.
+    Calculates standings for the first phase (League format).
+    All teams compete in a single table. Top 16 qualify.
     """
     sql = """
-    WITH PhaseMatches AS (
-        -- 1. Get all matches for the group stage phase
-        SELECT m.id, m.home_team_id, m.away_team_id
+    WITH AllPhaseMatches AS (
+        SELECT m.id, m.home_team_id, m.away_team_id, m.status
         FROM `Match` m
         JOIN `Round` r ON m.round_id = r.id
-        WHERE r.phase_id = %s AND m.status = 'Completed'
+        WHERE r.phase_id = %s
     ),
-    TeamOpponents AS (
-        -- 2. For each team, list all opponents they played against in this phase
-        SELECT home_team_id AS team_id, away_team_id AS opponent_id FROM PhaseMatches
+    ParticipatingTeams AS (
+        SELECT DISTINCT home_team_id as team_id FROM AllPhaseMatches
         UNION
-        SELECT away_team_id AS team_id, home_team_id AS opponent_id FROM PhaseMatches
+        SELECT DISTINCT away_team_id as team_id FROM AllPhaseMatches
     ),
-    TeamGroups AS (
-        -- 3. Use a recursive CTE to find connected components (the groups).
-        -- The group_identifier will be the smallest team ID in each connected component.
-        WITH RECURSIVE GroupWalk (team_id, group_identifier) AS (
-            SELECT id, id FROM Team WHERE id IN (SELECT team_id FROM TeamOpponents)
-            UNION
-            SELECT o.opponent_id, gw.group_identifier
-            FROM GroupWalk gw JOIN TeamOpponents o ON gw.team_id = o.team_id
-        )
-        SELECT team_id, MIN(group_identifier) as group_identifier FROM GroupWalk GROUP BY team_id
+    CompletedMatches AS (
+        SELECT * FROM AllPhaseMatches WHERE status = 'Completed'
     ),
     MatchScores AS (
-        -- 4. Calculate scores for each match
         SELECT
-            pm.id as match_id,
-            pm.home_team_id,
-            pm.away_team_id,
-            SUM(CASE WHEN pt.team_id = pm.home_team_id AND e.name LIKE '%%Made' THEN
+            cm.id as match_id,
+            cm.home_team_id,
+            cm.away_team_id,
+            SUM(CASE WHEN pt.team_id = cm.home_team_id AND e.name LIKE '%%Made' THEN
                 CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
                 ELSE 0 END) AS home_score,
-            SUM(CASE WHEN pt.team_id = pm.away_team_id AND e.name LIKE '%%Made' THEN
+            SUM(CASE WHEN pt.team_id = cm.away_team_id AND e.name LIKE '%%Made' THEN
                 CASE e.name WHEN '3-Point Field Goal Made' THEN 3 WHEN '2-Point Field Goal Made' THEN 2 ELSE 1 END
                 ELSE 0 END) AS away_score
-        FROM PhaseMatches pm
-        LEFT JOIN Event_Creation ec ON pm.id = ec.match_id
+        FROM CompletedMatches cm
+        LEFT JOIN Event_Creation ec ON cm.id = ec.match_id
         LEFT JOIN Event e ON ec.event_id = e.id
-        LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (pm.home_team_id, pm.away_team_id)
-        GROUP BY pm.id, pm.home_team_id, pm.away_team_id
+        LEFT JOIN Person_Team pt ON ec.person_id = pt.person_id AND pt.team_id IN (cm.home_team_id, cm.away_team_id)
+        GROUP BY cm.id, cm.home_team_id, cm.away_team_id
     ),
     Wins AS (
-        -- 5. Count wins for each team
         SELECT
             CASE WHEN home_score > away_score THEN home_team_id ELSE away_team_id END as team_id,
             COUNT(*) as wins
@@ -436,7 +424,6 @@ def calculate_group_stage_standings(phase_id):
         GROUP BY team_id
     ),
     TotalPoints AS (
-        -- 6. Calculate total points for each team
         SELECT team_id, SUM(points) as total_points
         FROM (
             SELECT home_team_id as team_id, home_score as points FROM MatchScores
@@ -446,22 +433,19 @@ def calculate_group_stage_standings(phase_id):
         GROUP BY team_id
     ),
     RankedTeams AS (
-        -- 7. Join all data and rank teams within their group
         SELECT
             t.name,
-            tg.group_identifier,
             COALESCE(w.wins, 0) AS wins,
-            (SELECT COUNT(*) FROM PhaseMatches pm WHERE pm.home_team_id = t.id OR pm.away_team_id = t.id) - COALESCE(w.wins, 0) AS losses,
-            RANK() OVER (PARTITION BY tg.group_identifier ORDER BY COALESCE(w.wins, 0) DESC, COALESCE(tp.total_points, 0) DESC) as group_rank
-        FROM Team t
-        JOIN TeamGroups tg ON t.id = tg.team_id
+            (SELECT COUNT(*) FROM CompletedMatches cm WHERE cm.home_team_id = t.id OR cm.away_team_id = t.id) - COALESCE(w.wins, 0) AS losses,
+            RANK() OVER (ORDER BY COALESCE(w.wins, 0) DESC, COALESCE(tp.total_points, 0) DESC) as league_rank
+        FROM ParticipatingTeams pt_ids
+        JOIN Team t ON pt_ids.team_id = t.id
         LEFT JOIN Wins w ON t.id = w.team_id
         LEFT JOIN TotalPoints tp ON t.id = tp.team_id
     )
-    -- 8. Final selection and ordering
-    SELECT name, wins, losses, group_identifier, group_rank
+    SELECT name, wins, losses, league_rank
     FROM RankedTeams
-    ORDER BY group_identifier, group_rank;
+    ORDER BY league_rank;
     """
     return query(sql, (phase_id,))
 

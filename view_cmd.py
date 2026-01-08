@@ -36,27 +36,23 @@ def display_standings(standings_list, is_group_stage=False):
     - standings_list: List of team stats.
     - is_group_stage: Boolean indicating if it's group stage (affects formatting).
     """
-    if not is_group_stage or not standings_list or 'group_rank' not in standings_list[0]:
-        
+    if not standings_list:
+        print("No standings available.")
+        return
+
+    if is_group_stage:
+        print(f"\n{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}{'Status':<15}")
+        print("-" * 55)
+        for team in standings_list:
+            rank = team.get('league_rank', 0)
+            status = "Qualified" if rank <= 16 else "Eliminated"
+            print(f"{rank:<5}{team['name']:<25}{int(team['wins']):<5}{int(team['losses']):<5}{status:<15}")
+    else:
         header = f"\n{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}"
         print(header)
         print("-" * 50)
         for i, team in enumerate(standings_list):
             print(f"{i+1:<5}{team['name']:<25}{team['wins']:<5}{team['losses']:<5}")
-    else:
-        
-        current_group = None
-        group_char = 'A'
-        for team in standings_list:
-            if team['group_identifier'] != current_group:
-                current_group = team['group_identifier']
-                print(f"\n--- Group {group_char} ---")
-                print(f"{'Pos':<5}{'Team':<25}{'W':<5}{'L':<5}{'Status':<15}")
-                print("-" * 55)
-                group_char = chr(ord(group_char) + 1)
-
-            status = "Qualified" if team['group_rank'] <= 4 else "Not Qualified"
-            print(f"{team['group_rank']:<5}{team['name']:<25}{int(team['wins']):<5}{int(team['losses']):<5}{status:<15}")
 
     input("\nPress [Enter] to continue...")
 

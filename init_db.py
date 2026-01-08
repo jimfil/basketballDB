@@ -3,13 +3,10 @@ import certifi
 import os
 from dotenv import load_dotenv
 import bcrypt
-# Hash the password "admin123"
+
 password_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
-# 1. Load the variables from the .env file
 load_dotenv()
 
-# 2. Fetch variables (Best practice: use all caps for constants)
-# If the variable isn't found, these will be None
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
 DB_PASS = os.getenv('DB_PASS')

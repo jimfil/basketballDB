@@ -1,4 +1,4 @@
-# basketballDB
+# basketballDB (Non Functional, Cloud Database is down)
 
 A Python-based database system and utilities for storing, querying, and analyzing basketball league data.
 
